@@ -17,7 +17,7 @@ echo "OK3"
 pwd
 ls
 
-tar -xvf $ARCHIVE
+tar -xzf $ARCHIVE
 
 echo "OK4"
 ls
