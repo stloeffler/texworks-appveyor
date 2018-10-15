@@ -29,5 +29,5 @@ curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
-mkdir build && cd build && cmake -G"MSYS Makefiles" -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON .. && make && make install
+mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw32" .. && make && make install
 
