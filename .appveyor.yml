@@ -9,9 +9,11 @@ environment:
   matrix:
     - MSYSTEM: MINGW32
       BASH_PATH: C:\msys64\usr\bin\bash 
+      QT5: C:\Qt\5.11.1\mingw53_32
 
 install:
-  - appveyor AddMessage "Installing hunspell" -Category Information
+#  - appveyor AddMessage "Installing hunspell" -Category Information
+  - set Path=%QT5%\bin;%Path%
   - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/get-dependencies.sh"'
 
 before_build:
