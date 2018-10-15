@@ -24,7 +24,7 @@ mkdir -p /c/projects/poppler
 cd /c/projects/poppler
 
 pacman -Ss freetype
-pacman -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff
+pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff
 #jpeg
 
 curl -sSL -O ${poppler_URL}
