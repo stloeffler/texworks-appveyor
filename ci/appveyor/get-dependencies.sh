@@ -19,7 +19,7 @@ curl -sSL -O ${hunspell_URL}
 # FIXME: Check checksum
 7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
 cd ${hunspell_DIRNAME}
-autoreconf -i && ./configure && make
+autoreconf -i && ./configure && make && make install
 
 
 mkdir -p /c/projects/poppler
@@ -29,5 +29,5 @@ curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
-mkdir build && cd build && cmake -G"MSYS Makefiles" -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON .. && make
+mkdir build && cd build && cmake -G"MSYS Makefiles" -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON .. && make && make install
 
