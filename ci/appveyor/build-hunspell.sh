@@ -11,7 +11,8 @@ curl -sSL -O https://github.com/hunspell/hunspell/archive/$hunspell_ARCHIVE
 
 # FIXME: Check checksum
 
-tar -xf $hunspell_ARCHIVE
+#tar -xf $hunspell_ARCHIVE
+7z x "$hunspell_ARCHIVE" -so | 7z x -si -ttar
 
 cd $hunspell_DIRNAME
 
