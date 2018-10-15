@@ -22,9 +22,14 @@ autoreconf -i && ./configure && make
 
 mkdir -p /c/projects/poppler
 cd /c/projects/poppler
+
+pacman -Ss freetype
+pacman -S mingw-w64-freetype mingw-w64-openjpeg2 mingw-w64-lcms2 mingw-w64-libpng mingw-w64-libtiff
+#jpeg
+
 curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
-mkdir build && cd build && cmake .. && make
+mkdir build && cd build && cmake -G"MSYS Makefiles" .. && make
 
