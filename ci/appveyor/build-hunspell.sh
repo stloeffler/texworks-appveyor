@@ -1,23 +1,21 @@
 #!/bin/sh
 
-ARCHIVE=v1.6.2.tar.gz
+hunspell_VERSION=1.6.2
+hunspell_ARCHIVE=v${hunspell_VERSION}.tar.gz
+hunspell_DIRNAME=hunspell-${hunspell_VERSION}
 
-echo "OK1"
 mkdir -p /c/projects/hunspell
 cd /c/projects/hunspell
 
-echo "OK2"
-pwd
-ls
+curl -sSL -O https://github.com/hunspell/hunspell/archive/$hunspell_ARCHIVE
 
+# FIXME: Check checksum
 
-curl -sS -O https://github.com/hunspell/hunspell/archive/$ARCHIVE
+tar -xf $hunspell_ARCHIVE
 
-echo "OK3"
-pwd
-ls
-
-tar -xzf $ARCHIVE
+cd $hunspell_DIRNAME
 
 echo "OK4"
 ls
+
+autoreconf -i && ./configure && make
