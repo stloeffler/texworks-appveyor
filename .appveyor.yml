@@ -12,7 +12,7 @@ environment:
 
 install:
   - appveyor AddMessage "Installing hunspell" -Category Information
-  - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/build-hunspell.sh"'
+  - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/get-dependencies.sh"'
 
 before_build:
 #  - # run cmake
