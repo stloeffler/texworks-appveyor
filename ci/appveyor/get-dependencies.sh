@@ -31,5 +31,5 @@ curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
-mkdir build && cd build && cmake -G"MSYS Makefiles" .. && make
+mkdir build && cd build && cmake -G"MSYS Makefiles" -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON .. && make
 
