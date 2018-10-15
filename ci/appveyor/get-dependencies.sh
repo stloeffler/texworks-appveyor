@@ -11,20 +11,19 @@ poppler_DIRNAME=poppler-${poppler_VERSION}
 poppler_URL=https://poppler.freedesktop.org/${poppler_ARCHIVE}
 
 
-#mkdir -p /c/projects/hunspell
-#cd /c/projects/hunspell
-#curl -sSL -O ${hunspell_URL}
-## FIXME: Check checksum
-#7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
-#cd ${hunspell_DIRNAME}
-#autoreconf -i && ./configure && make
+pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff mingw-w64-i686-curl mingw-w64-i686-lua
+
+mkdir -p /c/projects/hunspell
+cd /c/projects/hunspell
+curl -sSL -O ${hunspell_URL}
+# FIXME: Check checksum
+7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
+cd ${hunspell_DIRNAME}
+autoreconf -i && ./configure && make
 
 
 mkdir -p /c/projects/poppler
 cd /c/projects/poppler
-
-pacman -Ss freetype
-pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff mingw-w64-i686-curl
 
 curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
