@@ -1,0 +1,27 @@
+image: Visual Studio 2015
+
+shallow_clone: true
+clone_depth: 1
+
+configuration: Release
+
+environment:
+  matrix:
+    - MSYSTEM: MINGW32
+      BASH_PATH: C:\msys64\usr\bin\bash 
+
+install:
+  - appveyor AddMessage "Installing hunspell" -Category Information
+  - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/build-hunspell.sh"'
+
+before_build:
+#  - # run cmake
+
+build_script:
+
+test_script:
+  - echo This is my custom test script
+
+before_deploy:
+
+
