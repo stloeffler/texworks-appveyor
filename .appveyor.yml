@@ -18,6 +18,7 @@ before_build:
 #  - # run cmake
 
 build_script:
+  - echo build_script
 
 test_script:
   - echo This is my custom test script
