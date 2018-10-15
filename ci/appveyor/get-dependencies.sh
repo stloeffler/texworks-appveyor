@@ -11,13 +11,13 @@ poppler_DIRNAME=poppler-${poppler_VERSION}
 poppler_URL=https://poppler.freedesktop.org/${poppler_ARCHIVE}
 
 
-mkdir -p /c/projects/hunspell
-cd /c/projects/hunspell
-curl -sSL -O ${hunspell_URL}
-# FIXME: Check checksum
-7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
-cd ${hunspell_DIRNAME}
-autoreconf -i && ./configure && make
+#mkdir -p /c/projects/hunspell
+#cd /c/projects/hunspell
+#curl -sSL -O ${hunspell_URL}
+## FIXME: Check checksum
+#7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
+#cd ${hunspell_DIRNAME}
+#autoreconf -i && ./configure && make
 
 
 mkdir -p /c/projects/poppler
