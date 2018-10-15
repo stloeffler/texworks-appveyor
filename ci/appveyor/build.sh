@@ -2,4 +2,4 @@
 
 cd "${APPVEYOR_BUILD_FOLDER}/build"
 
-make
+make VERBOSE=1

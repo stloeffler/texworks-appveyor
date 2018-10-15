@@ -73,6 +73,8 @@ OPTION(WITH_MUPDF "Build MuPDF backend" ${WITH_MUPDF})
 
 OPTION(BUILD_SHARED_LIBS "Build shared library" ${BUILD_SHARED_LIBS})
 
+message("QtPDF BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
+
 # Dependency Configuration
 # ========================
 
@@ -176,6 +178,7 @@ IF (DESIRED_QT_VERSION MATCHES 5 OR (NOT DESIRED_QT_VERSION AND (QT_VERSION_MAJO
       LIST(INSERT QT_LIBRARIES 0 ${Qt5QWindows_LIBRARIES} ${Qt5FontDatabaseSupport_LIBRARIES} ${Qt5EventDispatcherSupport_LIBRARIES} ${Qt5ThemeSupport_LIBRARIES} ${Qt5AccessibilitySupport_LIBRARIES})
     endif()
     ADD_DEFINITIONS(-DSTATIC_QT5)
+	message("QtPDF -DSTATIC_QT5")
   ENDIF()
 
   # Define version-dependent wrappers
