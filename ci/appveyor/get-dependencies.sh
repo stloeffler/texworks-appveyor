@@ -11,7 +11,19 @@ poppler_DIRNAME=poppler-${poppler_VERSION}
 poppler_URL=https://poppler.freedesktop.org/${poppler_ARCHIVE}
 
 
+popplerdata_VERSION=0.4.9
+popplerdata_ARCHIVE=poppler-data-${popplerdata_VERSION}.tar.gz
+popplerdata_DIRNAME=poppler-data-${popplerdata_VERSION}
+popplerdata_URL=https://poppler.freedesktop.org/${popplerdata_ARCHIVE}
+
+
 pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff mingw-w64-i686-curl mingw-w64-i686-lua
+
+mkdir -p /c/projects/poppler-data
+cd /c/projects/poppler-data
+curl -sSL -O ${popplerdata_URL}
+# FIXME: Check checksum
+7z x "${popplerdata_ARCHIVE}" -so | 7z x -si -ttar
 
 
 mkdir -p /c/projects/poppler
