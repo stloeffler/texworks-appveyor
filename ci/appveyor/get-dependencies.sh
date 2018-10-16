@@ -26,6 +26,8 @@ curl -sSL -O ${popplerdata_URL}
 # FIXME: Check checksum
 echo "Extracting poppler-data"
 7z x "${popplerdata_ARCHIVE}" -so | 7z x -si -ttar
+echo "Rename ${popplerdata_DIRNAME} > poppler-data"
+mv ${popplerdata_DIRNAME} poppler-data
 
 
 echo "Downloading poppler"
