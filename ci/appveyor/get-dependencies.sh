@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/defs.h
+. ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/defs.sh
 
 hunspell_VERSION=1.6.2
 hunspell_ARCHIVE=v${hunspell_VERSION}.tar.gz
