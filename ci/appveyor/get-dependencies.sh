@@ -21,7 +21,7 @@ curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
-for PATCH in ${APPVEYOR_BUILD_FOLDER}/travis-ci/mxe/poppler-*.patch; do
+for PATCH in $(find ${APPVEYOR_BUILD_FOLDER}/travis-ci/mxe/ -iname 'poppler-*.patch'); do
 	echo "Applying ${PATCH}"
 	patch -p1 < "${PATCH}"
 done
