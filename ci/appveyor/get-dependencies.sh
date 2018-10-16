@@ -13,14 +13,6 @@ poppler_URL=https://poppler.freedesktop.org/${poppler_ARCHIVE}
 
 pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff mingw-w64-i686-curl mingw-w64-i686-lua
 
-mkdir -p /c/projects/hunspell
-cd /c/projects/hunspell
-curl -sSL -O ${hunspell_URL}
-# FIXME: Check checksum
-7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
-cd ${hunspell_DIRNAME}
-autoreconf -i && ./configure && make && make install
-
 
 mkdir -p /c/projects/poppler
 cd /c/projects/poppler
@@ -29,5 +21,18 @@ curl -sSL -O ${poppler_URL}
 # FIXME: Check checksum
 7z x "${poppler_ARCHIVE}" -so | 7z x -si -ttar
 cd ${poppler_DIRNAME}
+for PATCH in "${APPVEYOR_BUILD_FOLDER}/travis-ci/mxe/poppler-*.patch"; do
+	echo "Applying ${PATCH}"
+	patch -p1 < "${PATCH}"
+done
 mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw32" .. && make && make install
+
+
+mkdir -p /c/projects/hunspell
+cd /c/projects/hunspell
+curl -sSL -O ${hunspell_URL}
+# FIXME: Check checksum
+7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
+cd ${hunspell_DIRNAME}
+autoreconf -i && ./configure && make && make install
 
