@@ -49,7 +49,7 @@ for PATCH in $(find ${APPVEYOR_BUILD_FOLDER}/travis-ci/mxe/ -iname 'poppler-*.pa
 	patch -p1 < "${PATCH}"
 done
 print_info("Building poppler")
-mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw32" .. && make && make install
+mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw32" .. && make -j && make install
 
 
 print_headline("Installing hunspell")
@@ -62,5 +62,5 @@ print_info("Extracting hunspell")
 7z x "${hunspell_ARCHIVE}" -so | 7z x -si -ttar
 print_info("Building hunspell")
 cd ${hunspell_DIRNAME}
-autoreconf -i && ./configure && make && make install
+autoreconf -i && ./configure && make -j && make install
 
