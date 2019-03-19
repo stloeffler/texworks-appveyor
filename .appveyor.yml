@@ -12,7 +12,7 @@ environment:
   matrix:
     - MSYSTEM: MINGW32
       BASH_PATH: C:\msys64\usr\bin\bash 
-      QT5: C:\Qt\5.11.1\mingw53_32
+      QT5: C:\Qt\5.12\mingw73_64
 
 install:
 #  - appveyor AddMessage "Installing hunspell" -Category Information
