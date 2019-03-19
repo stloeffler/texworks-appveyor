@@ -17,4 +17,4 @@ cp -r /c/projects/poppler-data/poppler-data share/poppler
 echo "ls -l share/poppler"
 ls -l share/poppler
 
-cmake -G"MSYS Makefiles" -DTW_BUILD_ID='appveyor' -DDESIRED_QT_VERSION='5' -DCMAKE_BUILD_TYPE='Release' -DTEXWORKS_ADDITIONAL_LIBS="shlwapi" -DWITH_LUA=OFF ..
+cmake -G"MSYS Makefiles" -DTW_BUILD_ID='appveyor' -DDESIRED_QT_VERSION='5' -DCMAKE_BUILD_TYPE='Release' -DTEXWORKS_ADDITIONAL_LIBS="shlwapi" ..
