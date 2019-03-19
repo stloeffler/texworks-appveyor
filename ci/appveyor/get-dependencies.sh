@@ -20,7 +20,7 @@ popplerdata_URL=https://poppler.freedesktop.org/${popplerdata_ARCHIVE}
 
 
 print_headline "Installing dependencies"
-pacman --noconfirm -S mingw-w64-i686-freetype mingw-w64-i686-openjpeg2 mingw-w64-i686-lcms2 mingw-w64-i686-libpng mingw-w64-i686-libtiff mingw-w64-i686-curl mingw-w64-i686-lua
+pacman --noconfirm -S mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw-w64-x86_64-lcms2 mingw-w64-x86_64-libpng mingw-w64-x86_64-libtiff mingw-w64-x86_64-curl mingw-w64-x86_64-lua
 
 print_headline "Installing poppler-data"
 print_info "Downloading poppler-data"
@@ -49,7 +49,7 @@ for PATCH in $(find ${APPVEYOR_BUILD_FOLDER}/travis-ci/mxe/ -iname 'poppler-*.pa
 	patch -p1 < "${PATCH}"
 done
 print_info "Building poppler"
-mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw32" .. && make -j && make install
+mkdir build && cd build && cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE="Release" -DBUILD_QT5_TESTS=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_XPDF_HEADERS=ON -DCMAKE_INSTALL_PREFIX="/mingw64" .. && make -j && make install
 
 
 print_headline "Installing hunspell"

@@ -10,7 +10,7 @@ configuration: Release
 
 environment:
   matrix:
-    - MSYSTEM: MINGW32
+    - MSYSTEM: MINGW64
       BASH_PATH: C:\msys64\usr\bin\bash 
       QT5: C:\Qt\5.12\mingw73_64
 
