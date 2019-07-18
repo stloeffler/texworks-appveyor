@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2016  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -353,6 +353,20 @@ void PDFDocument::updateRecentFileActions()
 void PDFDocument::updateWindowMenu()
 {
 	TWUtils::updateWindowMenu(this, menuWindow);
+
+	// If the window list changed, we might want to update our window title as
+	// well to uniquely identify the current file among all others open in
+	// TeXworks
+	Q_FOREACH(QAction * action, menuWindow->actions()) {
+		SelWinAction * selWinAction = qobject_cast<SelWinAction*>(action);
+		// If this is not an action related to an open window, skip it
+		if (!selWinAction)
+			continue;
+		// If this action corresponds to the current file, use it's label as
+		// window text
+		if (selWinAction->data().toString() == fileName())
+			setWindowTitle(tr("%1[*] - %2").arg(selWinAction->text()).arg(tr(TEXWORKS_NAME)));
+	}
 }
 
 void PDFDocument::sideBySide()
@@ -651,6 +665,7 @@ void PDFDocument::maybeEnableCopyCommand(const bool isTextSelected)
 void PDFDocument::setCurrentFile(const QString &fileName)
 {
 	curFile = QFileInfo(fileName).canonicalFilePath();
+	//: Format for the window title (ex. "file.pdf[*] - TeXworks")
 	setWindowTitle(tr("%1[*] - %2").arg(TWUtils::strippedName(curFile)).arg(tr(TEXWORKS_NAME)));
 	TWApp::instance()->updateWindowMenus();
 }

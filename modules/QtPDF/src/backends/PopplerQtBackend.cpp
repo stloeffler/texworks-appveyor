@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2013  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2018  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -182,6 +182,9 @@ void Document::parseDocument()
 {
   QWriteLocker docLocker(_docLock.data());
 
+  clearMetaData();
+  _numPages = -1;
+
   if (!_poppler_doc || _isLocked())
     return;
 
@@ -217,7 +220,6 @@ void Document::parseDocument()
   _poppler_doc->setRenderHint(::Poppler::Document::TextAntialiasing);
 
   // Load meta data
-  clearMetaData();
   QStringList metaKeys = _poppler_doc->infoKeys();
   if (metaKeys.contains(QString::fromUtf8("Title"))) {
     _meta_title = _poppler_doc->info(QString::fromUtf8("Title"));

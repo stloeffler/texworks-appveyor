@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012  Stefan Löffler
+ * Copyright (C) 2013-2019  Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -159,6 +159,7 @@ public:
     _actionOnActivation = (other._actionOnActivation ? other._actionOnActivation->clone() : nullptr);
   }
   Link & operator =(const Link & other) {
+    if (&other == this) return *this;
     AbstractAnnotation::operator =(other);
     _highlightingMode = other._highlightingMode;
     _quadPoints = other._quadPoints;

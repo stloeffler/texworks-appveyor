@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2016  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -539,6 +539,7 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 			if (iter->contains(QChar::fromLatin1('_'))) {
 				QLocale::Country country  = loc.country();
 				if (country != QLocale::AnyCountry)
+					//: Country suffix for TeXworks translations (ex. "Portuguese (Brazil)")
 					locName += tr(" (%1)").arg(QLocale::countryToString(country));
 			}
 		}

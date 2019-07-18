@@ -7,11 +7,18 @@
 #   ├── <a href="CMakeLists.html">CMakeLists.txt</a>
 #   ├── src
 #   │   └── <a href="src/CMakeLists.html">CMakeLists.txt</a>
+#   ├── modules
+#   │   ├── <a href="modules/CMakeLists.html">CMakeLists.txt</a>
+#   │   ├── synctex
+#   │   │   └── <a href="modules/synctex/CMakeLists.html">CMakeLists.txt</a>
+#   │   └── QtPDF (documented separately)
 #   ├── plugins-src
 #   │   ├── TWLuaPlugin
 #   │   │   └── <a href="plugins-src/TWLuaPlugin/CMakeLists.html">CMakeLists.txt</a>
 #   │   └── TWPythonPlugin
 #   │       └── <a href="plugins-src/TWPythonPlugin/CMakeLists.html">CMakeLists.txt</a>
+#   ├── unit-tests
+#   │   └── <a href="unit-tests/CMakeLists.html">CMakeLists.txt</a>
 #   └── CMake
 #       └── packaging
 #           ├── <a href="CMake/packaging/CMakeLists.html">CMakeLists.txt</a>
@@ -49,8 +56,10 @@ PROJECT(TeXworks)
 
 # We require CMake v2.8 or greater because it is the first version that
 # provides support for certain parts of Qt, such as the ScriptTools.
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.6)
-CMAKE_POLICY(VERSION 2.8.6)
+# Also, 2.8.11 added the possibility to define INTERFACE_COMPILE_DEFINITIONS
+# on imported libraries required by recent versions of hunspell (e.g. 1.7.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
+CMAKE_POLICY(VERSION 2.8.11)
 
 # Silence warning about linking to qtmain.lib statically on Windows
 IF(POLICY CMP0020)
@@ -195,7 +204,7 @@ IF (UNIX AND NOT APPLE)
   SET(TeXworks_ICON_DIR share/pixmaps CACHE PATH "Path in which icons are installed")
   SET(TeXworks_MAN_DIR share/man/man1 CACHE PATH "Path in which manpages are installed")
   SET(TeXworks_DESKTOP_DIR share/applications CACHE PATH "Path in which .desktop files are installed")
-  SET(TeXworks_APPDATA_DIR share/appdata CACHE PATH "Path in which .appdata.xml files are installed")
+  SET(TeXworks_APPDATA_DIR share/metainfo CACHE PATH "Path in which .appdata.xml files are installed")
   MARK_AS_ADVANCED(TeXworks_HELP_DIR)
   MARK_AS_ADVANCED(TeXworks_DIC_DIR)
   MARK_AS_ADVANCED(TeXworks_DOCS_DIR)
@@ -302,6 +311,13 @@ IF (NOT DESIRED_QT_VERSION OR DESIRED_QT_VERSION MATCHES 5)
       )
       LIST(INSERT QT_LIBRARIES 0 ${Qt5QWindows_LIBRARIES} ${Qt5FontDatabaseSupport_LIBRARIES} ${Qt5EventDispatcherSupport_LIBRARIES} ${Qt5ThemeSupport_LIBRARIES})
     endif()
+    # Starting with Qt 5.11, WindowsUIAutomation was added
+    if (QT_VERSION_MAJOR EQUAL 5 AND QT_VERSION_MINOR GREATER 10)
+      FIND_LIBRARY(Qt5WindowsUIAutomation_LIBRARIES Qt5WindowsUIAutomationSupport
+        HINTS "${QT_LIB_DIR}"
+      )
+      LIST(APPEND QT_LIBRARIES ${Qt5WindowsUIAutomation_LIBRARIES})
+    endif()
     # Starting with Qt 5.10, AccessibilitySupport was modularized
     if (QT_VERSION_MAJOR EQUAL 5 AND QT_VERSION_MINOR GREATER 9)
       FIND_LIBRARY(Qt5AccessibilitySupport_LIBRARIES Qt5AccessibilitySupport
@@ -365,7 +381,6 @@ FIND_PACKAGE(Synctex QUIET)
 SET(TeXworks_INCLUDE_DIRS
   ${SYNCTEX_INCLUDE_DIR}
   ${QT_INCLUDE_DIR}
-  ${HUNSPELL_INCLUDE_DIR}
   ${ZLIB_INCLUDE_DIR}
 )
 
@@ -377,7 +392,7 @@ MARK_AS_ADVANCED(TEXWORKS_ADDITIONAL_LIBS)
 
 SET(TeXworks_LIBS
   ${SYNCTEX_LIBRARIES}
-  ${HUNSPELL_LIBRARIES}
+  hunspell
   ${QT_LIBRARIES}
   ${ZLIB_LIBRARIES}
   ${TEXWORKS_ADDITIONAL_LIBS}

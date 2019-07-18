@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2016  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -512,15 +512,46 @@ QString TWUtils::chooseDefaultFilter(const QString & filename, const QStringList
 	return filters.last();
 }
 
-QString TWUtils::strippedName(const QString &fullFileName)
+QString TWUtils::strippedName(const QString &fullFileName, const unsigned int dirComponents /* = 0 */)
 {
-	return QFileInfo(fullFileName).fileName();
+	QDir dir(QFileInfo(fullFileName).dir());
+	for (unsigned int i = 0; i < dirComponents; ++i) {
+		// NB: dir.cdUp() would be more logical, but fails if the resulting
+		// path does not exist
+		dir.setPath(dir.path() + QString::fromLatin1("/.."));
+	}
+	return dir.relativeFilePath(fullFileName);
+}
+
+QStringList TWUtils::constructUniqueFileLabels(const QStringList & fileList)
+{
+	QStringList labelList;
+
+	Q_FOREACH (QString file, fileList)
+		labelList.append(strippedName(file));
+
+	// Make label list unique, i.e. while labels are not unique, add
+	// directory components
+	for (unsigned int dirComponents = 1; ; ++dirComponents) {
+		QList<bool> isDuplicate;
+		Q_FOREACH(QString label, labelList)
+			isDuplicate.append(labelList.count(label) > 1);
+		if (!isDuplicate.contains(true))
+			break;
+
+		for (int i = 0; i < labelList.size(); ++i) {
+			if (!isDuplicate[i])
+				continue;
+			labelList[i] = strippedName(fileList[i], dirComponents);
+		}
+	}
+	return labelList;
 }
 
 void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions, QMenu *menu, QAction * clearAction) /* static */
 {
 	QSETTINGS_OBJECT(settings);
-	QStringList fileList;
+	QStringList fileList, labelList;
 	if (settings.contains(QString::fromLatin1("recentFiles"))) {
 		QList<QVariant> files = settings.value(QString::fromLatin1("recentFiles")).toList();
 		foreach (const QVariant& v, files) {
@@ -543,7 +574,10 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 			settings.setValue(QString::fromLatin1("recentFiles"), files);
 		}
 	}
-	
+
+	// Generate label list (list of filenames without directory components)
+	labelList = constructUniqueFileLabels(fileList);
+
 	int numRecentFiles = fileList.size();
 	
 	foreach(QAction * sep, menu->actions()) {
@@ -565,10 +599,8 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 	}
 
 	for (int i = 0; i < numRecentFiles; ++i) {
-		QString path = fileList[i];
-		QString text = TWUtils::strippedName(path);
-		actions[i]->setText(text);
-		actions[i]->setData(path);
+		actions[i]->setText(labelList[i]);
+		actions[i]->setData(fileList[i]);
 		actions[i]->setVisible(true);
 	}
 	
@@ -590,14 +622,22 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 	while (!menu->actions().isEmpty() && menu->actions().last()->isSeparator())
 		menu->removeAction(menu->actions().last());
 	
+	QList<TeXDocument *> texDocList;
+	QStringList fileList, labelList;
+	Q_FOREACH(TeXDocument * texDoc, TeXDocument::documentList()) {
+		texDocList.append(texDoc);
+		fileList.append(texDoc->fileName());
+	}
+	labelList = constructUniqueFileLabels(fileList);
+
 	// append an item for each TeXDocument
 	bool first = true;
-	foreach (TeXDocument *texDoc, TeXDocument::documentList()) {
+	for (int i = 0; i < texDocList.size(); ++i) {
+		TeXDocument * texDoc = texDocList[i];
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
-		QString label = texDoc->fileName();
-		SelWinAction *selWin = new SelWinAction(menu, label);
+		SelWinAction *selWin = new SelWinAction(menu, fileList[i], labelList[i]);
 		if (texDoc->isModified()) {
 			QFont f(selWin->font());
 			f.setItalic(true);
@@ -610,14 +650,24 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 		QObject::connect(selWin, SIGNAL(triggered()), texDoc, SLOT(selectWindow()));
 		menu->addAction(selWin);
 	}
-	
+
+	QList<PDFDocument *> pdfDocList;
+	fileList.clear();
+	labelList.clear();
+	Q_FOREACH(PDFDocument * pdfDoc, PDFDocument::documentList()) {
+		pdfDocList.append(pdfDoc);
+		fileList.append(pdfDoc->fileName());
+	}
+	labelList = constructUniqueFileLabels(fileList);
+
 	// append an item for each PDFDocument
 	first = true;
-	foreach (PDFDocument *pdfDoc, PDFDocument::documentList()) {
+	for (int i = 0; i < pdfDocList.size(); ++i) {
+		PDFDocument * pdfDoc = pdfDocList[i];
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
-		SelWinAction *selWin = new SelWinAction(menu, pdfDoc->fileName());
+		SelWinAction *selWin = new SelWinAction(menu, fileList[i], labelList[i]);
 		if (pdfDoc == qobject_cast<PDFDocument*>(window)) {
 			selWin->setCheckable(true);
 			selWin->setChecked(true);
@@ -1171,10 +1221,10 @@ QDateTime TWUtils::gitCommitDate()
 
 // action subclass used for dynamic window-selection items in the Window menu
 
-SelWinAction::SelWinAction(QObject *parent, const QString &fileName)
+SelWinAction::SelWinAction(QObject *parent, const QString &fileName, const QString &label)
 	: QAction(parent)
 {
-	setText(TWUtils::strippedName(fileName));
+	setText(label);
 	setData(fileName);
 }
 
@@ -1209,73 +1259,6 @@ bool CmdKeyFilter::eventFilter(QObject *obj, QEvent *event)
 	}
 #endif
 	return QObject::eventFilter(obj, event);
-}
-
-#pragma mark === Engine ===
-
-Engine::Engine()
-	: QObject()
-	, f_showPdf(false)
-{
-}
-
-Engine::Engine(const QString& name, const QString& program, const QStringList arguments, bool showPdf)
-	: QObject(), f_name(name), f_program(program), f_arguments(arguments), f_showPdf(showPdf)
-{
-}
-
-Engine::Engine(const Engine& orig)
-	: QObject(), f_name(orig.f_name), f_program(orig.f_program), f_arguments(orig.f_arguments), f_showPdf(orig.f_showPdf)
-{
-}
-
-Engine& Engine::operator=(const Engine& rhs)
-{
-	f_name = rhs.f_name;
-	f_program = rhs.f_program;
-	f_arguments = rhs.f_arguments;
-	f_showPdf = rhs.f_showPdf;
-	return *this;
-}
-
-const QString Engine::name() const
-{
-	return f_name;
-}
-
-const QString Engine::program() const
-{
-	return f_program;
-}
-
-const QStringList Engine::arguments() const
-{
-	return f_arguments;
-}
-
-bool Engine::showPdf() const
-{
-	return f_showPdf;
-}
-
-void Engine::setName(const QString& name)
-{
-	f_name = name;
-}
-
-void Engine::setProgram(const QString& program)
-{
-	f_program = program;
-}
-
-void Engine::setArguments(const QStringList& arguments)
-{
-	f_arguments = arguments;
-}
-
-void Engine::setShowPdf(bool showPdf)
-{
-	f_showPdf = showPdf;
 }
 
 /*static*/

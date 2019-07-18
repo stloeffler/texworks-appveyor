@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2016  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -514,8 +514,10 @@ void TeXDocument::reloadSpellcheckerMenu()
 			else {
 				QLocale::Country country = loc.country();
 				if (country != QLocale::AnyCountry)
+					//: Format to display spell-checking dictionaries (ex. "English - UnitedStates (en_US)")
 					label = tr("%1 - %2 (%3)").arg(QLocale::languageToString(loc.language())).arg(QLocale::countryToString(country)).arg(dict);
 				else
+					//: Format to display spell-checking dictionaries (ex. "English (en_US)")
 					label = tr("%1 (%2)").arg(QLocale::languageToString(loc.language())).arg(dict);
 			}
 
@@ -1490,6 +1492,7 @@ void TeXDocument::setCurrentFile(const QString &fileName)
 	textEdit->document()->setModified(false);
 	setWindowModified(false);
 
+	//: Format for the window title (ex. "file.tex[*] - TeXworks")
 	setWindowTitle(tr("%1[*] - %2").arg(TWUtils::strippedName(curFile)).arg(tr(TEXWORKS_NAME)));
 
 	actionRemove_Aux_Files->setEnabled(!isUntitled);
@@ -1532,6 +1535,20 @@ void TeXDocument::updateRecentFileActions()
 void TeXDocument::updateWindowMenu()
 {
 	TWUtils::updateWindowMenu(this, menuWindow);
+
+	// If the window list changed, we might want to update our window title as
+	// well to uniquely identify the current file among all others open in
+	// TeXworks
+	Q_FOREACH(QAction * action, menuWindow->actions()) {
+		SelWinAction * selWinAction = qobject_cast<SelWinAction*>(action);
+		// If this is not an action related to an open window, skip it
+		if (!selWinAction)
+			continue;
+		// If this action corresponds to the current file, use it's label as
+		// window text
+		if (selWinAction->data().toString() == fileName())
+			setWindowTitle(tr("%1[*] - %2").arg(selWinAction->text()).arg(tr(TEXWORKS_NAME)));
+	}
 }
 
 void TeXDocument::updateEngineList()
@@ -1541,12 +1558,18 @@ void TeXDocument::updateEngineList()
 		menuRun->removeAction(menuRun->actions().last());
 	while (engineActions->actions().count() > 0)
 		engineActions->removeAction(engineActions->actions().last());
-	engine->clear();
+
+	QStandardItemModel * model = qobject_cast<QStandardItemModel*>(engine->model());
+	Q_ASSERT(model);
+	model->clear();
 	foreach (Engine e, TWApp::instance()->getEngineList()) {
 		QAction *newAction = new QAction(e.name(), engineActions);
 		newAction->setCheckable(true);
+		newAction->setEnabled(e.isAvailable());
 		menuRun->addAction(newAction);
-		engine->addItem(e.name());
+		QStandardItem * item = new QStandardItem(e.name());
+		item->setFlags(Qt::ItemIsSelectable | (e.isAvailable() ? Qt::ItemIsEnabled : Qt::NoItemFlags));
+		model->appendRow(item);
 	}
 	connect(engine, SIGNAL(currentIndexChanged(const QString&)), this, SLOT(selectedEngine(const QString&)));
 	int index = engine->findText(engineName, Qt::MatchFixedString);
@@ -2646,11 +2669,12 @@ void TeXDocument::typeset()
 	if (process)
 		return;	// this shouldn't happen if we disable the command at the right time
 
-	if (isUntitled || textEdit->document()->isModified())
+	if (isUntitled || textEdit->document()->isModified()) {
 		if (!save()) {
 			statusBar()->showMessage(tr("Cannot process unsaved document"), kStatusMessageDuration);
 			return;
 		}
+	}
 
 	findRootFilePath();
 	if (!saveFilesHavingRoot(rootFilePath))
@@ -2663,61 +2687,27 @@ void TeXDocument::typeset()
 	}
 
 	Engine e = TWApp::instance()->getNamedEngine(engine->currentText());
-	if (e.program().isEmpty()) {
+	if (!e.isAvailable()) {
 		statusBar()->showMessage(tr("%1 is not properly configured").arg(engine->currentText()), kStatusMessageDuration);
 		return;
 	}
 
-	process = new QProcess(this);
+	QString pdfName;
+	if (getPreviewFileName(pdfName))
+		oldPdfTime = QFileInfo(pdfName).lastModified();
+	else
+		oldPdfTime = QDateTime();
+
+	// Stop watching the pdf document while it is being changed to avoid
+	// interference
+	if (pdfDoc && pdfDoc->widget())
+		pdfDoc->widget()->setWatchForDocumentChangesOnDisk(false);
+
+	process = e.run(fileInfo, this);
+
 	updateTypesettingAction();
 
-	QString workingDir = fileInfo.canonicalPath();	// Note that fileInfo refers to the root file
-#if defined(Q_OS_WIN)
-	// files in the root directory of the current drive have to be handled specially
-	// because QFileInfo::canonicalPath() returns a path without trailing slash
-	// (i.e., a bare drive letter)
-	if (workingDir.length() == 2 && workingDir.endsWith(QChar::fromLatin1(':')))
-		workingDir.append(QChar::fromLatin1('/'));
-#endif
-	process->setWorkingDirectory(workingDir);
-
-	QStringList env = QProcess::systemEnvironment();
-	QStringList binPaths = TWApp::instance()->getBinaryPaths(env);
-	
-	QString exeFilePath = TWApp::instance()->findProgram(e.program(), binPaths);
-	
-#if !defined(Q_OS_DARWIN) // not supported on OS X yet :(
-	// Add a (customized) TEXEDIT environment variable
-	env << QString::fromLatin1("TEXEDIT=%1 --position=%d %s").arg(QCoreApplication::applicationFilePath());
-	
-	#if defined(Q_OS_WIN) // MiKTeX apparently uses it's own variable
-	env << QString::fromLatin1("MIKTEX_EDITOR=%1 --position=%l \"%f\"").arg(QCoreApplication::applicationFilePath());
-	#endif
-#endif
-	
-	if (!exeFilePath.isEmpty()) {
-		QStringList args = e.arguments();
-		
-		// for old MikTeX versions: delete $synctexoption if it causes an error
-		static bool checkedForSynctex = false;
-		static bool synctexSupported = true;
-		if (!checkedForSynctex) {
-			QString pdftex = TWApp::instance()->findProgram(QString::fromLatin1("pdftex"), binPaths);
-			if (!pdftex.isEmpty()) {
-				int result = QProcess::execute(pdftex, QStringList() << QString::fromLatin1("-synctex=1") << QString::fromLatin1("-version"));
-				synctexSupported = (result == 0);
-			}
-			checkedForSynctex = true;
-		}
-		if (!synctexSupported)
-			args.removeAll(QString::fromLatin1("$synctexoption"));
-		
-		args.replaceInStrings(QString::fromLatin1("$synctexoption"), QString::fromLatin1("-synctex=1"));
-		args.replaceInStrings(QString::fromLatin1("$fullname"), fileInfo.fileName());
-		args.replaceInStrings(QString::fromLatin1("$basename"), fileInfo.completeBaseName());
-		args.replaceInStrings(QString::fromLatin1("$suffix"), fileInfo.suffix());
-		args.replaceInStrings(QString::fromLatin1("$directory"), fileInfo.absoluteDir().absolutePath());
-		
+	if (process) {
 		textEdit_console->clear();
 		if (consoleTabs->isHidden()) {
 			keepConsoleOpen = false;
@@ -2735,29 +2725,15 @@ void TeXDocument::typeset()
 		showPdfWhenFinished = e.showPdf();
 		userInterrupt = false;
 
-		process->setEnvironment(env);
-		process->setProcessChannelMode(QProcess::MergedChannels);
-		
 		connect(process, SIGNAL(readyReadStandardOutput()), this, SLOT(processStandardOutput()));
 		connect(process, SIGNAL(error(QProcess::ProcessError)), this, SLOT(processError(QProcess::ProcessError)));
 		connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
-		
-		QString pdfName;
-		if (getPreviewFileName(pdfName))
-			oldPdfTime = QFileInfo(pdfName).lastModified();
-		else
-			oldPdfTime = QDateTime();
-		
-		// Stop watching the pdf document while it is being changed to avoid
-		// interference
-		if (pdfDoc && pdfDoc->widget())
-			pdfDoc->widget()->setWatchForDocumentChangesOnDisk(false);
-
-		process->start(exeFilePath, args);
 	}
 	else {
-		process->deleteLater();
-		process = NULL;
+		// Since the process didn't run, restart watching the output immediately
+		if (pdfDoc && pdfDoc->widget())
+			pdfDoc->widget()->setWatchForDocumentChangesOnDisk(true);
+
 		QMessageBox msgBox(QMessageBox::Critical, tr("Unable to execute %1").arg(e.name()),
 		                      QLatin1String("<p>") + tr("The program \"%1\" was not found.").arg(e.program()) + QLatin1String("</p>") +
 #if defined(Q_OS_WIN)
@@ -2771,10 +2747,9 @@ void TeXDocument::typeset()
 							  QMessageBox::Cancel, this);
 		msgBox.setDetailedText(
 		                      tr("Searched in directories:") + QChar::fromLatin1('\n') +
-		                      QLatin1String(" * ") + binPaths.join(QLatin1String("\n * ")) + QChar::fromLatin1('\n') +
+							  QLatin1String(" * ") + Engine::binPaths().join(QLatin1String("\n * ")) + QChar::fromLatin1('\n') +
 							  tr("Check the configuration of the %1 tool and the path settings in the Preferences dialog.").arg(e.name()));
 		msgBox.exec();
-		updateTypesettingAction();
 	}
 }
 

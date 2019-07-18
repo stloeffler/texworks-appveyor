@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2011-2012  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2018  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -457,6 +457,7 @@ class PDFDocumentScene : public QGraphicsScene
 
 public:
   PDFDocumentScene(QSharedPointer<Backend::Document> a_doc, QObject *parent = 0, const double dpiX = -1, const double dpiY = -1);
+  ~PDFDocumentScene();
 
   QWeakPointer<Backend::Document> document();
   QList<QGraphicsItem*> pages();
@@ -506,6 +507,7 @@ protected:
   QWidget * _unlockWidget;
   QLabel * _unlockWidgetLockText, * _unlockWidgetLockIcon;
   QPushButton * _unlockWidgetUnlockButton;
+  QGraphicsProxyWidget * _unlockProxy;
 
 private:
   // Parent has no copy constructor, so this class shouldn't either. Also, we
