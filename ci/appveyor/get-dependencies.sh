@@ -2,12 +2,12 @@
 
 . ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/defs.sh
 
-hunspell_VERSION=1.6.2
+hunspell_VERSION=1.7.0
 hunspell_ARCHIVE=v${hunspell_VERSION}.tar.gz
 hunspell_DIRNAME=hunspell-${hunspell_VERSION}
 hunspell_URL=https://github.com/hunspell/hunspell/archive/$hunspell_ARCHIVE
 
-poppler_VERSION=0.64.0
+poppler_VERSION=0.79.0
 poppler_ARCHIVE=poppler-${poppler_VERSION}.tar.xz
 poppler_DIRNAME=poppler-${poppler_VERSION}
 poppler_URL=https://poppler.freedesktop.org/${poppler_ARCHIVE}
