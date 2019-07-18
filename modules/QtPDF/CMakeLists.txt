@@ -68,8 +68,6 @@ OPTION(WITH_MUPDF "Build MuPDF backend" OFF)
 
 
 
-message("QtPDF BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
-
 # Dependency Configuration
 # ========================
 

@@ -145,9 +145,6 @@ SET(TW_BUILD_ID "personal" CACHE STRING "A distribution-specific identifier for 
 OPTION(BUILD_SHARED_LIBS "Build with shared libs?" ON)
 MARK_AS_ADVANCED(BUILD_SHARED_LIBS)
 
-message("Tw BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
-
-
 # Build shared plugins by default
 OPTION(BUILD_SHARED_PLUGINS "Build shared plugins?" ${BUILD_SHARED_LIBS})
 MARK_AS_ADVANCED(BUILD_SHARED_PLUGINS)
