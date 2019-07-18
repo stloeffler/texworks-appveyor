@@ -32,8 +32,9 @@
 #include <QHash>
 #include <QTextCodec>
 
+#include "scripting/ScriptAPIInterface.h"
+
 class TWScriptLanguageInterface;
-class TWScriptAPI;
 
 /** \brief	Abstract base class for all Tw scripts
  *
@@ -165,7 +166,7 @@ public:
 	 * 					error description
 	 * \return	\c true on success, \c false if an error occured
 	 */
-	bool run(QObject *context, QVariant& result);
+	bool run(Tw::Scripting::ScriptAPIInterface & api);
 	
 	/** \brief Check if two scripts are the same
 	 *
@@ -179,10 +180,6 @@ public:
 	Q_INVOKABLE void unsetGlobal(const QString& key) { m_globals.remove(key); }
 	Q_INVOKABLE bool hasGlobal(const QString& key) const { return m_globals.contains(key); }
 	Q_INVOKABLE QVariant getGlobal(const QString& key) const { return m_globals[key]; }
-
-	bool mayExecuteSystemCommand(const QString& cmd, QObject * context) const;
-	bool mayWriteFile(const QString& filename, QObject * context) const;
-	bool mayReadFile(const QString& filename, QObject * context) const;
 
 protected:
 	/** \brief	Constructor
@@ -201,7 +198,7 @@ protected:
 	 *             .target, .app, .result properties
 	 * \return     \c true on success, \c false if an error occurred.
 	 */
-	virtual bool execute(TWScriptAPI* tw) const = 0;
+	virtual bool execute(Tw::Scripting::ScriptAPIInterface * tw) const = 0;
 	
 	enum ParseHeaderResult {
 		ParseHeader_OK,
@@ -345,7 +342,7 @@ public:
 	 * it should create the script wrapper for the given file.
 	 * This method does NOT call parseHeader(), so until this
 	 * is done, the script is not necessarily valid.
-	 * \return	the script wrapper, or NULL if the file cannot be found
+	 * \return	the script wrapper, or nullptr if the file cannot be found
 	 */
 	virtual TWScript* newScript(const QString& fileName) = 0;
 

@@ -101,8 +101,7 @@ const QString TWUtils::getLibraryPath(const QString& subdir, const bool updateOn
 				libPath = dicPath;
 			return libPath; // don't try to create/update the system dicts directory
 		}
-		else
-			libRootPath = QDir::homePath() + QLatin1String("/." TEXWORKS_NAME "/");
+		libRootPath = QDir::homePath() + QLatin1String("/." TEXWORKS_NAME "/");
 #else // defined(Q_OS_WIN)
 		libRootPath = QDir::homePath() + QLatin1String("/" TEXWORKS_NAME "/");
 #endif
@@ -245,7 +244,7 @@ insertItemIfPresent(QFileInfo& fi, QMenu* helpMenu, QAction* before, QSignalMapp
 		}
 		QAction* action = new QAction(title, helpMenu);
 		mapper->setMapping(action, fi.canonicalFilePath());
-		action->connect(action, SIGNAL(triggered()), mapper, SLOT(map()));
+		QObject::connect(action, SIGNAL(triggered()), mapper, SLOT(map()));
 		helpMenu->insertAction(before, action);
 		return 1;
 	}
@@ -255,9 +254,9 @@ insertItemIfPresent(QFileInfo& fi, QMenu* helpMenu, QAction* before, QSignalMapp
 void TWUtils::insertHelpMenuItems(QMenu* helpMenu)
 {
 	QSignalMapper* mapper = new QSignalMapper(helpMenu);
-	mapper->connect(mapper, SIGNAL(mapped(const QString&)), TWApp::instance(), SLOT(openHelpFile(const QString&)));
+	QObject::connect(mapper, SIGNAL(mapped(const QString&)), TWApp::instance(), SLOT(openHelpFile(const QString&)));
 
-	QAction* before = NULL;
+	QAction* before = nullptr;
 	int i, firstSeparator = 0;
 	QList<QAction*> actions = helpMenu->actions();
 	for (i = 0; i < actions.count(); ++i) {
@@ -328,11 +327,11 @@ void TWUtils::insertHelpMenuItems(QMenu* helpMenu)
 	}
 }
 
-QList<QTextCodec*> *TWUtils::codecList = NULL;
+QList<QTextCodec*> *TWUtils::codecList = nullptr;
 
 QList<QTextCodec*> *TWUtils::findCodecs()
 {
-	if (codecList != NULL)
+	if (codecList)
 		return codecList;
 
 	codecList = new QList<QTextCodec*>;
@@ -361,11 +360,11 @@ QList<QTextCodec*> *TWUtils::findCodecs()
 	return codecList;
 }
 
-QStringList* TWUtils::translationList = NULL;
+QStringList* TWUtils::translationList = nullptr;
 
 QStringList* TWUtils::getTranslationList()
 {
-	if (translationList != NULL)
+	if (translationList)
 		return translationList;
 
 	translationList = new QStringList;
@@ -394,11 +393,11 @@ QStringList* TWUtils::getTranslationList()
 	return translationList;
 }
 
-QHash<QString, QString>* TWUtils::dictionaryList = NULL;
+QHash<QString, QString>* TWUtils::dictionaryList = nullptr;
 
 QHash<QString, QString>* TWUtils::getDictionaryList(const bool forceReload /* = false */)
 {
-	if (dictionaryList != NULL) {
+	if (dictionaryList) {
 		if (!forceReload)
 			return dictionaryList;
 		delete dictionaryList;
@@ -418,20 +417,20 @@ QHash<QString, QString>* TWUtils::getDictionaryList(const bool forceReload /* = 
 	return dictionaryList;
 }
 
-QHash<const QString,Hunhandle*> *TWUtils::dictionaries = NULL;
+QHash<const QString,Hunhandle*> *TWUtils::dictionaries = nullptr;
 
 Hunhandle* TWUtils::getDictionary(const QString& language)
 {
 	if (language.isEmpty())
-		return NULL;
+		return nullptr;
 	
-	if (dictionaries == NULL)
+	if (!dictionaries)
 		dictionaries = new QHash<const QString,Hunhandle*>;
 	
 	if (dictionaries->contains(language))
 		return dictionaries->value(language);
 	
-	Hunhandle *h = NULL;
+	Hunhandle *h = nullptr;
 	foreach (QDir dicDir, TWUtils::getLibraryPath(QString::fromLatin1("dictionaries")).split(QLatin1String(PATH_LIST_SEP))) {
 		QFileInfo affFile(dicDir, language + QLatin1String(".aff"));
 		QFileInfo dicFile(dicDir, language + QLatin1String(".dic"));
@@ -442,7 +441,7 @@ Hunhandle* TWUtils::getDictionary(const QString& language)
 			return h;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 QString TWUtils::getLanguageForDictionary(const Hunhandle * pHunspell)
@@ -450,7 +449,7 @@ QString TWUtils::getLanguageForDictionary(const Hunhandle * pHunspell)
 	if (!pHunspell || !dictionaries)
 		return QString();
 	
-	for (QHash<const QString,Hunhandle*>::const_iterator it = dictionaries->begin(); it != dictionaries->end(); ++it) {
+	for (QHash<const QString,Hunhandle*>::const_iterator it = dictionaries->cbegin(); it != dictionaries->cend(); ++it) {
 		if (it.value() == pHunspell)
 			return it.key();
 	}
@@ -467,7 +466,7 @@ void TWUtils::clearDictionaries()
 			Hunspell_destroy(it.value());
 	}
 	delete dictionaries;
-	dictionaries = NULL;
+	dictionaries = nullptr;
 }
 
 QStringList* TWUtils::filters;
@@ -498,8 +497,7 @@ QString TWUtils::chooseDefaultFilter(const QString & filename, const QStringList
 
 	if (extension.isEmpty())
 		return filters[0];
-	
-	QRegExp re(QString::fromLatin1("\\*\\.") + QRegExp::escape(extension));
+
 	foreach (QString filter, filters) {
 		// return filter if it corresponds to the given extension
 		// note that the extension must be the first one in the list to match;
@@ -599,6 +597,9 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 	}
 
 	for (int i = 0; i < numRecentFiles; ++i) {
+		// a "&" inside a menu label is considered a mnemonic, thus, we need to escape them
+		labelList[i].replace(QString::fromLatin1("&"), QString::fromLatin1("&&"));
+
 		actions[i]->setText(labelList[i]);
 		actions[i]->setData(fileList[i]);
 		actions[i]->setVisible(true);
@@ -855,7 +856,7 @@ void TWUtils::applyToolbarOptions(QMainWindow *theWindow, int iconSize, bool sho
 	iconSize = iconSize * 8 + 8;	// convert 1,2,3 to 16,24,32
 	foreach (QObject *object, theWindow->children()) {
 		QToolBar *theToolBar = qobject_cast<QToolBar*>(object);
-		if (theToolBar != NULL) {
+		if (theToolBar) {
 			theToolBar->setToolButtonStyle(showText ? Qt::ToolButtonTextUnderIcon : Qt::ToolButtonIconOnly);
 			theToolBar->setIconSize(QSize(iconSize, iconSize));
 		}
@@ -885,7 +886,7 @@ bool TWUtils::findNextWord(const QString& text, int index, int& start, int& end)
 		return false;
 	QChar	ch = text.at(index);
 
-#define IS_WORD_FORMING(ch) (ch.isLetter() || ch.isMark())
+#define IS_WORD_FORMING(ch) ((ch).isLetter() || (ch).isMark())
 
 	if (IS_WORD_FORMING(ch) || ch == QChar::fromLatin1('@') /* || ch == QChar::fromLatin1('\'') || ch == 0x2019 */) {
 		bool isControlSeq = false; // becomes true if we include an @ sign or a leading backslash
@@ -1048,7 +1049,7 @@ void TWUtils::readConfig()
 
 	QFile pairsFile(configDir.filePath(QString::fromLatin1("delimiter-pairs.txt")));
 	if (pairsFile.open(QIODevice::ReadOnly)) {
-		while (1) {
+		while (true) {
 			QByteArray ba = pairsFile.readLine();
 			if (ba.size() == 0)
 				break;
@@ -1077,7 +1078,7 @@ void TWUtils::readConfig()
 	if (configFile.open(QIODevice::ReadOnly)) {
 		QRegExp keyVal(QString::fromLatin1("([-a-z]+):\\s*([^ \\t].+)"));
 			// looking for keyword, colon, optional whitespace, value
-		while (1) {
+		while (true) {
 			QByteArray ba = configFile.readLine();
 			if (ba.size() == 0)
 				break;
@@ -1156,11 +1157,11 @@ int TWUtils::findOpeningDelim(const QString& text, int pos)
 	return -1;
 }
 
-void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true */, QSettings * map /* = NULL */)
+void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true */, QSettings * map /* = nullptr */)
 {
 	bool deleteMap = false;
 	
-	if (widget == NULL)
+	if (!widget)
 		return;
 
 	if (!map) {
@@ -1233,11 +1234,11 @@ SelWinAction::SelWinAction(QObject *parent, const QString &fileName, const QStri
 // on OS X only, the singleton CmdKeyFilter object is attached to all TeXDocument editor widgets
 // to stop Command-keys getting inserted into edit text items
 
-CmdKeyFilter *CmdKeyFilter::filterObj = NULL;
+CmdKeyFilter *CmdKeyFilter::filterObj = nullptr;
 
 CmdKeyFilter *CmdKeyFilter::filter()
 {
-	if (filterObj == NULL)
+	if (!filterObj)
 		filterObj = new CmdKeyFilter;
 	return filterObj;
 }
@@ -1311,7 +1312,7 @@ bool FileVersionDatabase::save(const QString & path) const
 	return true;
 }
 
-void FileVersionDatabase::addFileRecord(const QFileInfo & file, const QByteArray & md5Hash, const QString version)
+void FileVersionDatabase::addFileRecord(const QFileInfo & file, const QByteArray & md5Hash, const QString & version)
 {
 	// remove all existing entries for this file
 	QMutableListIterator<FileVersionDatabase::Record> it(m_records);

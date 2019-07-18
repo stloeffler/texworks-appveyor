@@ -20,14 +20,10 @@
 */
 
 #include "TWScript.h"
-#include "TWScriptAPI.h"
-#include "ConfigurableApp.h"
-#include "DefaultPrefs.h"
 
 #include <QTextStream>
 #include <QMetaObject>
 #include <QMetaMethod>
-#include <QApplication>
 #include <QTextCodec>
 #include <QDir>
 
@@ -39,10 +35,9 @@ TWScript::TWScript(QObject * plugin, const QString& fileName)
 		m_Codec = QTextCodec::codecForLocale();
 }
 
-bool TWScript::run(QObject *context, QVariant& result)
+bool TWScript::run(Tw::Scripting::ScriptAPIInterface & api)
 {
-	TWScriptAPI tw(this, qApp, context, result);
-	return execute(&tw);
+	return execute(&api);
 }
 
 bool TWScript::hasChanged() const
@@ -188,13 +183,8 @@ TWScript::PropertyResult TWScript::doGetProperty(const QObject * obj, const QStr
 	// if we didn't find a property maybe it's a method
 	if (iProp < 0) {
 		for (int i = 0; i < obj->metaObject()->methodCount(); ++i) {
-			#if QT_VERSION >= 0x050000
 			if (QString::fromUtf8(obj->metaObject()->method(i).methodSignature()).startsWith(name + QChar::fromLatin1('(')))
 				return Property_Method;
-			#else
-			if (QString::fromUtf8(obj->metaObject()->method(i).signature()).startsWith(name + QChar::fromLatin1('(')))
-				return Property_Method;
-			#endif
 		}
 		return Property_DoesNotExist;
 	}
@@ -246,9 +236,9 @@ TWScript::MethodResult TWScript::doCallMethod(QObject * obj, const QString& name
 	char * strTypeName;
 	QMetaMethod mm;
 	QGenericReturnArgument retValArg;
-	void * retValBuffer = NULL;
+	void * retValBuffer = nullptr;
 	TWScript::MethodResult status;
-	void * myNullPtr = NULL;
+	void * myNullPtr = nullptr;
 	
 	if (!obj || !(obj->metaObject()))
 		return Method_Invalid;
@@ -258,13 +248,8 @@ TWScript::MethodResult TWScript::doCallMethod(QObject * obj, const QString& name
 	for (i = 0; i < mo->methodCount(); ++i) {
 		mm = mo->method(i);
 		// Check for the method name
-		#if QT_VERSION >= 0x050000
 		if (!QString::fromUtf8(mm.methodSignature()).startsWith(name + QChar::fromLatin1('(')))
 			continue;
-		#else
-		if (!QString::fromUtf8(mm.signature()).startsWith(name + QChar::fromLatin1('(')))
-			continue;
-		#endif
 		// we can only call public methods
 		if (mm.access() != QMetaMethod::Public)
 			continue;
@@ -288,19 +273,9 @@ TWScript::MethodResult TWScript::doCallMethod(QObject * obj, const QString& name
 				continue;
 			if (arguments[j].canConvert((QVariant::Type)type))
 				continue;
-			// allow invalid===NULL for pointers
-			#if QT_VERSION >= 0x050000
+			// allow invalid===nullptr for pointers
 			if (typeOfArg == QVariant::Invalid && type == QMetaType::QObjectStar)
 				continue;
-			#else
-			if (typeOfArg == QVariant::Invalid && (type == QMetaType::QObjectStar || type == QMetaType::QWidgetStar))
-				continue;
-			// QObject* and QWidget* may be convertible
-			if (typeOfArg == QMetaType::QWidgetStar && type == QMetaType::QObjectStar)
-				continue;
-			if (typeOfArg == QMetaType::QObjectStar && type == QMetaType::QWidgetStar && (arguments[j].value<QObject*>() == NULL || qobject_cast<QWidget*>(arguments[j].value<QObject*>())))
-				continue;
-			#endif
 			break;
 		}
 		if (j < arguments.count())
@@ -322,21 +297,10 @@ TWScript::MethodResult TWScript::doCallMethod(QObject * obj, const QString& name
 			}
 			if (arguments[j].canConvert((QVariant::Type)type))
 				arguments[j].convert((QVariant::Type)type);
-			#if QT_VERSION >= 0x050000
 			else if (typeOfArg == QVariant::Invalid && type == QMetaType::QObjectStar) {
 				genericArgs.append(QGenericArgument(strTypeName, &myNullPtr));
 				continue;
 			}
-			#else
-			else if (typeOfArg == QVariant::Invalid && (type == QMetaType::QObjectStar || type == QMetaType::QWidgetStar)) {
-				genericArgs.append(QGenericArgument(strTypeName, &myNullPtr));
-				continue;
-			}
-			else if (typeOfArg == QMetaType::QWidgetStar && type == QMetaType::QObjectStar)
-				arguments[j] = QVariant::fromValue(qobject_cast<QObject*>(arguments[j].value<QWidget*>()));
-			else if (typeOfArg == QMetaType::QObjectStar && type == QMetaType::QWidgetStar && (arguments[j].value<QObject*>() == NULL || qobject_cast<QWidget*>(arguments[j].value<QObject*>())))
-				arguments[j] = QVariant::fromValue(qobject_cast<QWidget*>(arguments[j].value<QObject*>()));
-			#endif
 			// \TODO	handle failure during conversion
 			else { }
 			
@@ -363,15 +327,11 @@ TWScript::MethodResult TWScript::doCallMethod(QObject * obj, const QString& name
 			// Note: These two lines are a hack!
 			// QGenericReturnArgument should not be constructed directly; if
 			// this ever causes problems, think of another (better) way to do this
-			#if QT_VERSION >= 0x050000
 			retValBuffer = QMetaType::create(QMetaType::type(mm.typeName()));
-			#else
-			retValBuffer = QMetaType::construct(QMetaType::type(mm.typeName()));
-			#endif
 			retValArg = QGenericReturnArgument(mm.typeName(), retValBuffer);
 		}
 		
-		if (mo->invokeMethod(obj, qPrintable(name),
+		if (QMetaObject::invokeMethod(obj, qPrintable(name),
 							 Qt::DirectConnection,
 							 retValArg,
 							 genericArgs[0],
@@ -425,11 +385,6 @@ void TWScript::setGlobal(const QString& key, const QVariant& val)
 		case QMetaType::QObjectStar:
 			connect(v.value<QObject*>(), SIGNAL(destroyed(QObject*)), this, SLOT(globalDestroyed(QObject*)));
 			break;
-		#if QT_VERSION < 0x050000
-		case QMetaType::QWidgetStar:
-			connect((QWidget*)v.data(), SIGNAL(destroyed(QObject*)), this, SLOT(globalDestroyed(QObject*)));
-			break;
-		#endif
 		default: break;
 	}
 	m_globals[key] = v;
@@ -447,75 +402,9 @@ void TWScript::globalDestroyed(QObject * obj)
 				else
 					++i;
 				break;
-			#if QT_VERSION < 0x050000
-			case QMetaType::QWidgetStar:
-				if (i.value().value<QWidget*>() == obj)
-					i = m_globals.erase(i);
-				else
-					++i;
-				break;
-			#endif
 			default:
 				++i;
 				break;
 		}
 	}
 }
-
-
-bool TWScript::mayExecuteSystemCommand(const QString& cmd, QObject * context) const
-{
-	Q_UNUSED(cmd)
-	Q_UNUSED(context)
-	
-	// cmd may be a true command line, or a single file/directory to run or open
-	QSETTINGS_OBJECT(settings);
-	return settings.value(QString::fromLatin1("allowSystemCommands"), false).toBool();
-}
-
-bool TWScript::mayWriteFile(const QString& filename, QObject * context) const
-{
-	Q_UNUSED(filename)
-	Q_UNUSED(context)
-	
-	QSETTINGS_OBJECT(settings);
-	return settings.value(QString::fromLatin1("allowScriptFileWriting"), false).toBool();
-}
-
-bool TWScript::mayReadFile(const QString& filename, QObject * context) const
-{
-	QSETTINGS_OBJECT(settings);
-	QDir scriptDir(QFileInfo(m_Filename).absoluteDir());
-	QVariant targetFile;
-	QDir targetDir;
-	
-	if (settings.value(QString::fromLatin1("allowScriptFileReading"), kDefault_AllowScriptFileReading).toBool())
-		return true;
-	
-	// even if global reading is disallowed, some exceptions may apply
-	QFileInfo fi(QDir::cleanPath(filename));
-
-	// reading in subdirectories of the script file's directory is always allowed
-	if (!scriptDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
-		return true;
-
-	if (context) {
-		// reading subdirectories of the current file is always allowed
-		targetFile = context->property("fileName");
-		if (targetFile.isValid() && !targetFile.toString().isEmpty()) {
-			targetDir = QFileInfo(targetFile.toString()).absoluteDir();
-			if (!targetDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
-				return true;
-		}
-		// reading subdirectories of the root file is always allowed
-		targetFile = context->property("rootFileName");
-		if (targetFile.isValid() && !targetFile.toString().isEmpty()) {
-			targetDir = QFileInfo(targetFile.toString()).absoluteDir();
-			if (!targetDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
-				return true;
-		}
-	}
-	
-	return false;
-}
-

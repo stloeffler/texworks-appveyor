@@ -25,7 +25,6 @@
 #include <QDialog>
 #include <QList>
 
-#include "TWUtils.h"
 #include "Engine.h"
 
 #include "ui_PrefsDialog.h"
@@ -58,7 +57,7 @@ private slots:
 	void moveToolDown();
 	void addTool();
 	void removeTool();
-	void editTool(QListWidgetItem* item = NULL);
+	void editTool(QListWidgetItem* item = nullptr);
 
 private:
 	void init();

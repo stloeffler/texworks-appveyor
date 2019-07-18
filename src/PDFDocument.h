@@ -33,7 +33,6 @@
 #include <QTimer>
 #include <QMouseEvent>
 
-#include "TWApp.h"
 #include "FindDialog.h"
 #include "../modules/QtPDF/src/PDFDocumentWidget.h"
 #include "TWSynchronizer.h"
@@ -68,7 +67,7 @@ public:
 	void mouseMoveEvent(QMouseEvent * event);
 
 	void addShortcut(QAction * action, const char * member);
-	void addShortcut(const QKeySequence & key, const char * member, QAction * action = NULL);
+	void addShortcut(const QKeySequence & key, const char * member, QAction * action = nullptr);
 
 signals:
 	void fullscreenChanged(bool fullscreen);
@@ -98,7 +97,7 @@ class PDFDocument : public TWScriptable, private Ui::PDFDocument
     Q_PROPERTY(QString fileName READ fileName)
 
 public:
-	PDFDocument(const QString &fileName, TeXDocument *sourceDoc = NULL);
+	PDFDocument(const QString &fileName, TeXDocument *sourceDoc = nullptr);
 	virtual ~PDFDocument();
 
 	static PDFDocument *findDocument(const QString &fileName);
@@ -118,7 +117,7 @@ public:
 	void enableTypesetAction(bool enabled);
 	void updateTypesettingAction(bool processRunning);
 	void linkToSource(TeXDocument *texDoc);
-	bool hasSyncData() const { return _synchronizer != NULL; }
+	bool hasSyncData() const { return _synchronizer != nullptr; }
 
 	QtPDF::PDFDocumentWidget * widget() { return pdfWidget; }
 
@@ -151,7 +150,7 @@ public slots:
 	void copySelectedTextToClipboard();
 
 private slots:
-	void changedDocument(const QWeakPointer<QtPDF::Backend::Document> newDoc);
+	void changedDocument(const QWeakPointer<QtPDF::Backend::Document> & newDoc);
 	void updateRecentFileActions();
 	void updateWindowMenu();
 	void enablePageActions(int);
@@ -166,10 +165,10 @@ private slots:
 	void doPageDialog();
 	void doScaleDialog();
 	void jumpToSource();
-	void searchResultHighlighted(const int pageNum, const QList<QPolygonF> pdfRegion);
+	void searchResultHighlighted(const int pageNum, const QList<QPolygonF> & pdfRegion);
 	void setDefaultScale();
-	void maybeOpenUrl(const QUrl url);
-	void maybeOpenPdf(QString filename, QtPDF::PDFDestination destination, bool newWindow);
+	void maybeOpenUrl(const QUrl & url);
+	void maybeOpenPdf(const QString & filename, const QtPDF::PDFDestination & destination, const bool newWindow);
 	void maybeZoomToWindow(bool doZoom) { if (doZoom) pdfWidget->zoomFitWindow(); }
 	void maybeEnableCopyCommand(const bool isTextSelected);
 
@@ -209,11 +208,6 @@ private:
 	static QList<PDFDocument*> docList;
 
 	TWSyncTeXSynchronizer * _synchronizer;
-	
-	PDFSearchResult lastSearchResult;
-	// stores the page idx a search was started on
-	// after wrapping the search will continue only up to this page
-	int firstSearchPage;
 };
 
 #endif

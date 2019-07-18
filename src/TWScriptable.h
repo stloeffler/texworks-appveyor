@@ -71,7 +71,7 @@ public:
 	virtual bool parseHeader() { return doParseHeader(QString(), QString(), QString::fromLatin1("//")); };
 
 protected:
-	virtual bool execute(TWScriptAPI *tw) const;
+	virtual bool execute(Tw::Scripting::ScriptAPIInterface *tw) const;
 };
 
 // for JSScript, we provide a plugin-like factory, but it's actually compiled
@@ -114,7 +114,7 @@ public:
 		QVariant result;
 		return runScript(script, context, result, scriptType);
 	}
-	void runHooks(const QString& hookName, QObject * context = NULL);
+	void runHooks(const QString& hookName, QObject * context = nullptr);
 
 	const QList<QObject*>& languages() const { return scriptLanguages; }
 

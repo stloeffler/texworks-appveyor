@@ -29,6 +29,7 @@
 #include <QMap>
 #include <QPair>
 #include <QSettings>
+#include <QDateTime>
 
 #define TEXWORKS_NAME "TeXworks" /* app name, for use in menus, messages, etc */
 
@@ -90,9 +91,6 @@ public:
 	// describe the given filenames
 	static QStringList constructUniqueFileLabels(const QStringList & fileList);
 
-	// window positioning utilities
-	typedef void (WindowArrangementFunction)(const QWidgetList& windows, const QRect& bounds);
-	
 	static void tileWindowsInRect(const QWidgetList& windows, const QRect& bounds);
 	static void stackWindowsInRect(const QWidgetList& windows, const QRect& bounds);
 
@@ -119,7 +117,7 @@ public:
 	
 	static const QString& cleanupPatterns();
 	
-	static void installCustomShortcuts(QWidget * widget, bool recursive = true, QSettings * map = NULL);
+	static void installCustomShortcuts(QWidget * widget, bool recursive = true, QSettings * map = nullptr);
 
 	static bool isGitInfoAvailable();
 	static QString gitCommitHash();
@@ -189,7 +187,7 @@ public:
 	static FileVersionDatabase load(const QString & path);
 	bool save(const QString & path) const;
 	
-	void addFileRecord(const QFileInfo & file, const QByteArray & hash, const QString version);
+	void addFileRecord(const QFileInfo & file, const QByteArray & hash, const QString & version);
 	bool hasFileRecord(const QFileInfo & file) const;
 	Record getFileRecord(const QFileInfo & file) const;
 	const QList<Record> & getFileRecords() const { return m_records; }

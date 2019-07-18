@@ -9,17 +9,98 @@
 # new file to an explicit list will cause CMake to automatically reconfigure
 # the next time `make` is invoked. When `GLOB` is used, the developer will have
 # to remember to re-run `cmake` if a source file is added._
-FILE(GLOB TEXWORKS_SRCS       "*.cpp" "*.c")
-FILE(GLOB TEXWORKS_HDRS       "*.h")
-FILE(GLOB TEXWORKS_UIS        "*.ui")
-FILE(GLOB TEXWORKS_RCS        "${TeXworks_SOURCE_DIR}/res/*.qrc")
+set(TEXWORKS_SRCS BibTeXFile.cpp
+                  CitationSelectDialog.cpp
+                  ClickableLabel.cpp
+                  ClosableTabWidget.cpp
+                  CommandlineParser.cpp
+                  CompletingEdit.cpp
+                  ConfigurableApp.cpp
+                  ConfirmDelete.cpp
+                  Engine.cpp
+                  FindDialog.cpp
+                  HardWrapDialog.cpp
+                  main.cpp
+                  PDFDocument.cpp
+                  PrefsDialog.cpp
+                  ResourcesDialog.cpp
+                  ScreenCalibrationWidget.cpp
+                  ScriptManager.cpp
+                  TemplateDialog.cpp
+                  TeXDocks.cpp
+                  TeXDocument.cpp
+                  TeXHighlighter.cpp
+                  TWApp.cpp
+                  TWScriptable.cpp
+                  TWScriptAPI.cpp
+                  TWScript.cpp
+                  TWSynchronizer.cpp
+                  TWSystemCmd.cpp
+                  TWTextCodecs.cpp
+                  TWUtils.cpp)
+
+set(TEXWORKS_HDRS BibTeXFile.h
+                  CitationSelectDialog.h
+                  ClickableLabel.h
+                  ClosableTabWidget.h
+                  CommandlineParser.h
+                  CompletingEdit.h
+                  ConfigurableApp.h
+                  ConfirmDelete.h
+                  DefaultPrefs.h
+                  Engine.h
+                  FindDialog.h
+                  GitRev.h
+                  HardWrapDialog.h
+                  PDFDocument.h
+                  PrefsDialog.h
+                  ResourcesDialog.h
+                  ScreenCalibrationWidget.h
+                  ScriptManager.h
+                  TemplateDialog.h
+                  TeXDocks.h
+                  TeXDocument.h
+                  TeXHighlighter.h
+                  TWApp.h
+                  TWScriptable.h
+                  TWScriptAPI.h
+                  TWScript.h
+                  TWSynchronizer.h
+                  TWSystemCmd.h
+                  TWTextCodecs.h
+                  TWUtils.h
+                  TWVersion.h
+                  scripting/ScriptAPIInterface.h)
+
+if (WIN32)
+  list(APPEND TEXWORKS_HDRS DefaultBinaryPathsWin.h)
+else ()
+  list(APPEND TEXWORKS_HDRS DefaultBinaryPaths.h)
+endif ()
+
+set(TEXWORKS_UIS CitationSelectDialog.ui
+                 ConfirmDelete.ui
+                 Find.ui
+                 HardWrapDialog.ui
+                 PDFDocument.ui
+                 PDFFind.ui
+                 PrefsDialog.ui
+                 Replace.ui
+                 ResourcesDialog.ui
+                 ScriptManager.ui
+                 SearchResults.ui
+                 TemplateDialog.ui
+                 TeXDocument.ui
+                 ToolConfig.ui)
+
+set(TEXWORKS_RCS ${TeXworks_SOURCE_DIR}/res/resfiles.qrc
+                 ${TeXworks_SOURCE_DIR}/res/resources.qrc)
+
 FILE(GLOB TEXWORKS_TRANS_TS   "${TeXworks_SOURCE_DIR}/trans/*.ts")
-FILE(GLOB QTPDF_TRANS_TS      "${TeXworks_SOURCE_DIR}/modules/QtPDF/trans/*.ts")
 FILE(GLOB QT_TRANS_QM         "${TeXworks_SOURCE_DIR}/trans/qt/*.qm")
 
 IF ( WIN32 )
-	FILE(GLOB TEXWORKS_WIN_RCS  "${TeXworks_SOURCE_DIR}/res/*.rc")
-  LIST(APPEND TEXWORKS_SRCS ${TEXWORKS_WIN_RCS})
+  LIST(APPEND TEXWORKS_SRCS ${TeXworks_SOURCE_DIR}/res/TeXworks.rc)
 ENDIF ( WIN32 )
 
 # These source files along with the `.moc` files generated from some headers
@@ -63,77 +144,6 @@ IF ( WIN32 )
   SET(GUI_TYPE WIN32)
 ENDIF ()
 
-
-# Make sure the compiler can find include files.
-INCLUDE_DIRECTORIES(${TeXworks_INCLUDE_DIRS})
-
-# Make sure the compiler can find library files.
-LINK_DIRECTORIES(${TeXworks_LIB_DIRS})
-
-# Disallow automatic casts from char* to QString (enforcing the use of tr() or
-# explicitly specifying the string encoding)
-ADD_DEFINITIONS(-DQT_NO_CAST_FROM_ASCII -DQT_NO_CAST_TO_ASCII -DQT_NO_CAST_FROM_BYTEARRAY)
-
-ADD_DEFINITIONS(-DTW_BUILD_ID=${TW_BUILD_ID})
-IF (UNIX AND NOT APPLE)
-  IF (IS_ABSOLUTE ${TeXworks_HELP_DIR})
-    ADD_DEFINITIONS(-DTW_HELPPATH="${TeXworks_HELP_DIR}")
-  ELSE ()
-    ADD_DEFINITIONS(-DTW_HELPPATH="${CMAKE_INSTALL_PREFIX}/${TeXworks_HELP_DIR}")
-  ENDIF ()
-  IF (IS_ABSOLUTE ${TeXworks_PLUGIN_DIR})
-    ADD_DEFINITIONS(-DTW_PLUGINPATH="${TeXworks_PLUGIN_DIR}")
-  ELSE ()
-    ADD_DEFINITIONS(-DTW_PLUGINPATH="${CMAKE_INSTALL_PREFIX}/${TeXworks_PLUGIN_DIR}")
-  ENDIF ()
-  IF (IS_ABSOLUTE ${TeXworks_DIC_DIR})
-    ADD_DEFINITIONS(-DTW_DICPATH="${TeXworks_DIC_DIR}")
-  ELSE ()
-    ADD_DEFINITIONS(-DTW_DICPATH="${CMAKE_INSTALL_PREFIX}/${TeXworks_DIC_DIR}")
-  ENDIF ()
-ENDIF ()
-
-# Poppler supports XPDF API calls?
-IF (POPPLER_HAS_XPDF)
-  INCLUDE_DIRECTORIES(${POPPLER_XPDF_INCLUDE_DIR})
-  ADD_DEFINITIONS(-DHAVE_POPPLER_XPDF_HEADERS)
-ENDIF ()
-
-
-# Qt-Specific Source Code Processing
-# ----------------------------------
-
-IF (${QT_VERSION_MAJOR} EQUAL 5)
-  # Run uic on user interface files.
-  QT5_WRAP_UI(TEXWORKS_GEN_UI ${TEXWORKS_UIS})
-ELSE()
-  # Run uic on user interface files.
-  QT4_WRAP_UI(TEXWORKS_GEN_UI ${TEXWORKS_UIS})
-ENDIF()
-# Run rcc on reasource files.
-QT_ADD_RESOURCES(TEXWORKS_GEN_RCS ${TEXWORKS_RCS})
-# Add translations
-QT_ADD_TRANSLATIONS(TEXWORKS_GEN_TRANS ${TEXWORKS_TRANS_TS} ${QTPDF_TRANS_TS} ${QT_TRANS_QM})
-
-# Create .pro file that can be used for easy updating with `lupdate`. We sort
-# the file list to obtain a stable result (that can be kept in the repository)
-# irrespective of globbing order (which varies for different file systems).
-SET(TEXWORKS_TRANS_FILE_LIST
-  ${TEXWORKS_SRCS} ${TEXWORKS_HDRS} ${TEXWORKS_UIS} ${TEXWORKS_TRANS_TS}
-)
-LIST(SORT TEXWORKS_TRANS_FILE_LIST)
-CREATE_QT_PRO_FILE(
-  "${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro"
-  "src"
-  ${TEXWORKS_TRANS_FILE_LIST}
-)
-
-IF ( APPLE OR NOT UNIX )
-  SET(EXE_NAME TeXworks)
-ELSE ( APPLE OR NOT UNIX )
-  SET(EXE_NAME texworks)
-ENDIF ( APPLE OR NOT UNIX )
-
 # Compilation
 # -----------
 
@@ -146,20 +156,53 @@ IF (NOT ${BUILD_SHARED_PLUGINS})
   ENDIF()
 ENDIF()
 
-# Build the executible.
-ADD_EXECUTABLE( ${EXE_NAME} ${GUI_TYPE}
-  ${TEXWORKS_SRCS}
-  ${TEXWORKS_GEN_UI} ${TEXWORKS_GEN_RCS} ${TEXWORKS_GEN_TRANS}
+# Build the executable
+ADD_EXECUTABLE(TeXworks ${GUI_TYPE}
+  ${TEXWORKS_SRCS} ${TEXWORKS_HDRS} ${TEXWORKS_UIS}
+  ${TEXWORKS_RCS}
   ${TeXworks_APP_ICONS}
+)
+
+if (UNIX AND NOT APPLE)
+  set_target_properties(TeXworks PROPERTIES
+    OUTPUT_NAME texworks
+  )
+endif ()
+
+# Add translations
+target_add_qt_translations(TeXworks
+  PRO_FILE "${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro"
+  TS_FILES ${TEXWORKS_TRANS_TS}
+  QM_FILES ${QT_TRANS_QM}
 )
 
 IF (UNIX)
   # Required (at least) on OpenBSD to make scripting plugins work
-  SET_TARGET_PROPERTIES(${EXE_NAME} PROPERTIES LINK_FLAGS -rdynamic)
+  SET_TARGET_PROPERTIES(TeXworks PROPERTIES LINK_FLAGS -rdynamic)
 ENDIF ()
 
 # Specify libraries to be linked to TeXworks.
-TARGET_LINK_LIBRARIES( ${EXE_NAME} ${MODULE_LIBS} ${TeXworks_LIBS} )
+target_LINK_LIBRARIES(TeXworks QtPDF::qtpdf ${TeXworks_LIBS} )
+
+# Disallow automatic casts from char* to QString (enforcing the use of tr() or
+# explicitly specifying the string encoding)
+target_compile_definitions(TeXworks PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_BYTEARRAY QT_STRICT_ITERATORS)
+target_compile_definitions(TeXworks PRIVATE TW_BUILD_ID="${TW_BUILD_ID}")
+
+function (target_add_path_define target name path)
+  if (IS_ABSOLUTE ${path})
+    target_compile_definitions(${target} PRIVATE ${name}="${path}")
+  else ()
+    target_compile_definitions(${target} PRIVATE ${name}="${CMAKE_INSTALL_PREFIX}/${path}")
+  endif ()
+endfunction()
+
+if (UNIX AND NOT APPLE)
+  target_add_path_define(TeXworks "TW_HELPPATH" "${TeXworks_HELP_DIR}")
+  target_add_path_define(TeXworks "TW_PLUGINPATH" "${TeXworks_PLUGIN_DIR}")
+  target_add_path_define(TeXworks "TW_DICPATH" "${TeXworks_DIC_DIR}")
+endif ()
+
 
 # For OS X, generate `Info.plist` and add it to the `.app` bundle.
 IF (APPLE)
@@ -176,13 +219,13 @@ IF (APPLE)
   )
 ENDIF ()
 
-IF (${QT_VERSION_MAJOR} EQUAL 5 AND UNIX)
-    SET_TARGET_PROPERTIES(${EXE_NAME} PROPERTIES COMPILE_FLAGS -fPIC)
+IF (UNIX)
+    SET_TARGET_PROPERTIES(TeXworks PROPERTIES COMPILE_FLAGS -fPIC)
 ENDIF ()
 
 # Installation
 # ------------
-INSTALL( TARGETS ${EXE_NAME}
+INSTALL(TARGETS TeXworks
   RUNTIME DESTINATION bin COMPONENT
   BUNDLE DESTINATION . COMPONENT
 )

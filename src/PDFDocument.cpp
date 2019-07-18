@@ -49,7 +49,7 @@
 #include <QToolTip>
 #include <QSignalMapper>
 
-#include <math.h>
+#include <cmath>
 
 #define SYNCTEX_GZ_EXT	".synctex.gz"
 #define SYNCTEX_EXT		".synctex"
@@ -70,11 +70,19 @@ const int kPDFHighlightDuration = 2000;
 QList<PDFDocument*> PDFDocument::docList;
 
 PDFDocument::PDFDocument(const QString &fileName, TeXDocument *texDoc)
-	: _syncHighlight(NULL), _synchronizer(NULL), openedManually(false), _fullScreenManager(NULL)
+	: pdfWidget(nullptr)
+	, scrollArea(nullptr)
+	, toolButtonGroup(nullptr)
+	, pageLabel(nullptr)
+	, scaleLabel(nullptr)
+	, _fullScreenManager(nullptr)
+	, _syncHighlight(nullptr)
+	, openedManually(false)
+	, _synchronizer(nullptr)
 {
 	init();
 
-	if (texDoc == NULL)
+	if (!texDoc)
 		openedManually = true;
 
 	loadFile(fileName);
@@ -93,7 +101,7 @@ PDFDocument::PDFDocument(const QString &fileName, TeXDocument *texDoc)
 
 	QTimer::singleShot(100, this, SLOT(setDefaultScale()));
 
-	if (texDoc != NULL) {
+	if (texDoc) {
 		stackUnder((QWidget*)texDoc);
 		actionSide_by_Side->setEnabled(true);
 		actionGo_to_Source->setEnabled(true);
@@ -136,11 +144,11 @@ void PDFDocument::init()
 
 	connect(pdfWidget, SIGNAL(changedPage(int)), this, SLOT(updateStatusBar()));
 	connect(pdfWidget, SIGNAL(changedZoom(qreal)), this, SLOT(updateStatusBar()));
-	connect(pdfWidget, SIGNAL(changedDocument(const QWeakPointer<QtPDF::Backend::Document>)), this, SLOT(changedDocument(const QWeakPointer<QtPDF::Backend::Document>)));
-	connect(pdfWidget, SIGNAL(searchResultHighlighted(const int, const QList<QPolygonF>)), this, SLOT(searchResultHighlighted(const int, const QList<QPolygonF>)));
+	connect(pdfWidget, SIGNAL(changedDocument(const QWeakPointer<QtPDF::Backend::Document>)), this, SLOT(changedDocument(const QWeakPointer<QtPDF::Backend::Document> &)));
+	connect(pdfWidget, SIGNAL(searchResultHighlighted(const int, const QList<QPolygonF>)), this, SLOT(searchResultHighlighted(const int, const QList<QPolygonF> &)));
 	connect(pdfWidget, SIGNAL(changedPageMode(QtPDF::PDFDocumentView::PageMode)), this, SLOT(updatePageMode(QtPDF::PDFDocumentView::PageMode)));
-	connect(pdfWidget, SIGNAL(requestOpenPdf(QString,QtPDF::PDFDestination,bool)), this, SLOT(maybeOpenPdf(QString,QtPDF::PDFDestination,bool)));
-	connect(pdfWidget, SIGNAL(requestOpenUrl(QUrl)), this, SLOT(maybeOpenUrl(QUrl)));
+	connect(pdfWidget, SIGNAL(requestOpenPdf(QString,QtPDF::PDFDestination,bool)), this, SLOT(maybeOpenPdf(const QString&, const QtPDF::PDFDestination&, bool)));
+	connect(pdfWidget, SIGNAL(requestOpenUrl(QUrl)), this, SLOT(maybeOpenUrl(const QUrl &)));
 	connect(pdfWidget, SIGNAL(textSelectionChanged(bool)), this, SLOT(maybeEnableCopyCommand(bool)));
 
 	toolButtonGroup = new QButtonGroup(toolBar);
@@ -317,7 +325,7 @@ void PDFDocument::changeEvent(QEvent *event)
 
 void PDFDocument::linkToSource(TeXDocument *texDoc)
 {
-	if (texDoc != NULL) {
+	if (texDoc) {
 		if (!sourceDocList.contains(texDoc))
 			sourceDocList.append(texDoc);
 		actionGo_to_Source->setEnabled(true);
@@ -327,10 +335,10 @@ void PDFDocument::linkToSource(TeXDocument *texDoc)
 void PDFDocument::texClosed(QObject *obj)
 {
 	TeXDocument *texDoc = reinterpret_cast<TeXDocument*>(obj);
-		// can't use qobject_cast here as the object's metadata is already gone!
-	if (texDoc != 0) {
+	// can't use qobject_cast here as the object's metadata is already gone!
+	if (texDoc) {
 		sourceDocList.removeAll(texDoc);
-		if (sourceDocList.count() == 0)
+		if (sourceDocList.empty())
 			close();
 	}
 }
@@ -365,7 +373,7 @@ void PDFDocument::updateWindowMenu()
 		// If this action corresponds to the current file, use it's label as
 		// window text
 		if (selWinAction->data().toString() == fileName())
-			setWindowTitle(tr("%1[*] - %2").arg(selWinAction->text()).arg(tr(TEXWORKS_NAME)));
+			setWindowTitle(tr("%1[*] - %2").arg(selWinAction->text(), tr(TEXWORKS_NAME)));
 	}
 }
 
@@ -441,7 +449,7 @@ void PDFDocument::loadSyncData()
 {
 	if (_synchronizer) {
 		delete _synchronizer;
-		_synchronizer = NULL;
+		_synchronizer = nullptr;
 	}
 	_synchronizer = new TWSyncTeXSynchronizer(curFile);
 	if (!_synchronizer)
@@ -620,7 +628,7 @@ void PDFDocument::invalidateSyncHighlight()
 	// This slot should be called when the graphics item pointed to by
 	// _syncHighlight goes out of scope (e.g., because the PDF changed, all pages
 	// were deleted, and, in the process, all subordinate graphics items as well).
-	_syncHighlight = NULL;
+	_syncHighlight = nullptr;
 	_syncHighlightRemover.stop();
 }
 
@@ -628,7 +636,7 @@ void PDFDocument::clearSyncHighlight()
 {
 	if (_syncHighlight) {
 		delete _syncHighlight;
-		_syncHighlight = NULL;
+		_syncHighlight = nullptr;
 	}
 	_syncHighlightRemover.stop();
 }
@@ -666,7 +674,7 @@ void PDFDocument::setCurrentFile(const QString &fileName)
 {
 	curFile = QFileInfo(fileName).canonicalFilePath();
 	//: Format for the window title (ex. "file.pdf[*] - TeXworks")
-	setWindowTitle(tr("%1[*] - %2").arg(TWUtils::strippedName(curFile)).arg(tr(TEXWORKS_NAME)));
+	setWindowTitle(tr("%1[*] - %2").arg(TWUtils::strippedName(curFile), tr(TEXWORKS_NAME)));
 	TWApp::instance()->updateWindowMenus();
 }
  
@@ -679,13 +687,13 @@ PDFDocument *PDFDocument::findDocument(const QString &fileName)
 		if (theDoc && theDoc->curFile == canonicalFilePath)
 			return theDoc;
 	}
-	return NULL;
+	return nullptr;
 }
 
 void PDFDocument::zoomToRight(QWidget *otherWindow)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
-	QRect screenRect = desktop->availableGeometry(otherWindow == NULL ? this : otherWindow);
+	QRect screenRect = desktop->availableGeometry(otherWindow ? otherWindow : this);
 	screenRect.setTop(screenRect.top() + 22);
 	screenRect.setLeft((screenRect.left() + screenRect.right()) / 2 + 1);
 	screenRect.setBottom(screenRect.bottom() - 1);
@@ -724,7 +732,8 @@ void PDFDocument::goToSource()
 		actionGo_to_Source->setEnabled(false);
 }
 
-void PDFDocument::changedDocument(const QWeakPointer<QtPDF::Backend::Document> newDoc) {
+void PDFDocument::changedDocument(const QWeakPointer<QtPDF::Backend::Document> & newDoc) {
+	Q_UNUSED(newDoc)
 	updateStatusBar();
 	invalidateSyncHighlight();
 	enablePageActions(pdfWidget->currentPage());
@@ -775,7 +784,7 @@ void PDFDocument::updatePageMode(const QtPDF::PDFDocumentView::PageMode newMode)
 
 void PDFDocument::resetMagnifier()
 {
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 	QSETTINGS_OBJECT(settings);
 
 	if (settings.value(QString::fromLatin1("circularMagnifier"), kDefault_CircularMagnifier).toBool())
@@ -788,7 +797,7 @@ void PDFDocument::resetMagnifier()
 
 void PDFDocument::setResolution(const double res)
 {
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 	if (res > 0)
 		pdfWidget->setResolution(res);
 }
@@ -844,7 +853,7 @@ void PDFDocument::dropEvent(QDropEvent *event)
 
 void PDFDocument::contextMenuEvent(QContextMenuEvent *event)
 {
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 	QMenu menu(this);
 
 	// Disarm the active tool (if any) as the menu will be highjacking all
@@ -887,7 +896,7 @@ void PDFDocument::jumpToSource()
 	QtPDF::PDFDocumentScene * scene = qobject_cast<QtPDF::PDFDocumentScene*>(pdfWidget->scene());
 	if (!scene)
 		return;
-	QtPDF::PDFPageGraphicsItem * page = (QtPDF::PDFPageGraphicsItem*)(scene->pageAt(scenePos));
+	QtPDF::PDFPageGraphicsItem * page = dynamic_cast<QtPDF::PDFPageGraphicsItem*>(scene->pageAt(scenePos));
 	if (!page)
 		return;
 
@@ -902,6 +911,7 @@ void PDFDocument::doFindDialog()
 
 void PDFDocument::doFindAgain(bool newSearch /* = false */)
 {
+	Q_UNUSED(newSearch)
 	QSETTINGS_OBJECT(settings);
 
 	QString	searchText = settings.value(QString::fromLatin1("searchText")).toString();
@@ -919,7 +929,7 @@ void PDFDocument::doFindAgain(bool newSearch /* = false */)
 	widget()->search(searchText, searchFlags);
 }
 
-void PDFDocument::searchResultHighlighted(const int pageNum, const QList<QPolygonF> pdfRegion)
+void PDFDocument::searchResultHighlighted(const int pageNum, const QList<QPolygonF> & pdfRegion)
 {
 	QSETTINGS_OBJECT(settings);
 
@@ -951,8 +961,8 @@ void PDFDocument::searchResultHighlighted(const int pageNum, const QList<QPolygo
 		}
 
 		// Obtain the chracter bounding boxes of the search result
-		page->selectedText(region, NULL, &charBoxes, true);
-		Q_ASSERT(charBoxes.size() > 0);
+		page->selectedText(region, nullptr, &charBoxes, true);
+		Q_ASSERT(!charBoxes.empty());
 
 		// Obtain the centers of the first and last character bounding boxes and
 		// convert them to PDF coordinates (i.e., (0,0) in the lower left) as
@@ -985,7 +995,7 @@ void PDFDocument::setDefaultScale() {
 	}
 }
 
-void PDFDocument::maybeOpenUrl(const QUrl url)
+void PDFDocument::maybeOpenUrl(const QUrl & url)
 {
 	// Opening URLs could be a security risk, so ask the user (but make "yes,
 	// proceed the default option - after all the user typically clicked on the
@@ -995,8 +1005,9 @@ void PDFDocument::maybeOpenUrl(const QUrl url)
 		QDesktopServices::openUrl(url);
 }
 
-void PDFDocument::maybeOpenPdf(QString filename, QtPDF::PDFDestination destination, bool newWindow)
+void PDFDocument::maybeOpenPdf(const QString & filename, const QtPDF::PDFDestination & destination, const bool newWindow)
 {
+	Q_UNUSED(newWindow)
 	// Unlike in maybeOpenUrl, this function only works on local PDF files which
 	// we assume are safe.
 	// TODO: We currently ignore the value of newWindow and always open a new
@@ -1016,12 +1027,12 @@ void PDFDocument::print()
 	// Currently, printing is not supported in a reliable, cross-platform way
 	// Instead, offer to open the document in the system's default viewer
 	
-	QString msg = tr("Unfortunately, this version of %1 is unable to print Pdf documents due to various technical reasons.\n").arg(QString::fromLatin1(TEXWORKS_NAME));
+	QString msg = tr("Unfortunately, this version of %1 is unable to print PDF documents due to various technical reasons.\n").arg(QString::fromLatin1(TEXWORKS_NAME));
 	msg += tr("Do you want to open the file in the default viewer for printing instead?");
 	msg += tr(" (remember to close it again to avoid access problems)");
 	
 	if(QMessageBox::information(this,
-		tr("Print Pdf..."), msg,
+		tr("Print PDF..."), msg,
 		QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes
 	) {
 		QDesktopServices::openUrl(QUrl::fromLocalFile(curFile));
@@ -1030,9 +1041,9 @@ void PDFDocument::print()
 
 void PDFDocument::showScaleContextMenu(const QPoint pos)
 {
-	static QMenu * contextMenu = NULL;
+	static QMenu * contextMenu = nullptr;
 	
-	if (contextMenu == NULL) {
+	if (!contextMenu) {
 		contextMenu = new QMenu(this);
 		static QSignalMapper * contextMenuMapper = new QSignalMapper(this);
 		QAction * a;
@@ -1084,31 +1095,25 @@ void PDFDocument::setScaleFromContextMenu(const QString & strZoom)
 
 void PDFDocument::updateStatusBar()
 {
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 	showPage(pdfWidget->currentPage() + 1);
 	showScale(pdfWidget->zoomLevel());
 }
 
 void PDFDocument::setMouseMode(const int newMode)
 {
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 	pdfWidget->setMouseMode((QtPDF::PDFDocumentView::MouseMode)newMode);
 }
 
 void PDFDocument::doPageDialog()
 {
 	bool ok;
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 
-#if QT_VERSION < 0x050000
-	int pageNo = QInputDialog::getInteger(this, tr("Go to Page"),
-									tr("Page number:"), pdfWidget->currentPage() + 1,
-                  1, pdfWidget->lastPage(), 1, &ok);
-#else
 	int pageNo = QInputDialog::getInt(this, tr("Go to Page"),
 									tr("Page number:"), pdfWidget->currentPage() + 1,
                   1, pdfWidget->lastPage(), 1, &ok);
-#endif
 	if (ok)
 		pdfWidget->goToPage(pageNo - 1);
 }
@@ -1116,7 +1121,7 @@ void PDFDocument::doPageDialog()
 void PDFDocument::doScaleDialog()
 {
 	bool ok;
-	Q_ASSERT(pdfWidget != NULL);
+	Q_ASSERT(pdfWidget);
 
 	double newScale = QInputDialog::getDouble(this, tr("Set Zoom"), tr("Zoom level:"), 100 * pdfWidget->zoomLevel(), 0, 2147483647, 0, &ok);
 	if (ok)
@@ -1135,9 +1140,8 @@ FullscreenManager::FullscreenManager(QMainWindow * parent)
 //virtual
 FullscreenManager::~FullscreenManager()
 {
-	foreach (const shortcut_info & sci, _shortcuts) {
-		if (sci.shortcut) delete sci.shortcut;
-	}
+	foreach (const shortcut_info & sci, _shortcuts)
+		delete sci.shortcut;
 }
 
 void FullscreenManager::setFullscreen(const bool fullscreen /* = true */)
@@ -1238,7 +1242,7 @@ void FullscreenManager::addShortcut(QAction * action, const char * member)
 	addShortcut(action->shortcut(), member, action);
 }
 
-void FullscreenManager::addShortcut(const QKeySequence & key, const char * member, QAction * action /* = NULL */)
+void FullscreenManager::addShortcut(const QKeySequence & key, const char * member, QAction * action /* = nullptr */)
 {
 	shortcut_info sci;
 	sci.shortcut = new QShortcut(key, _parent, member);
@@ -1255,8 +1259,7 @@ void FullscreenManager::actionDeleted(QObject * obj)
 	if (!a) return;
 	for (unsigned int i = 0; i < _shortcuts.size(); ) {
 		if (_shortcuts[i].action == a) {
-			if (_shortcuts[i].shortcut)
-				delete _shortcuts[i].shortcut;
+			delete _shortcuts[i].shortcut;
 			_shortcuts.removeAt(i);
 		}
 		else

@@ -22,6 +22,7 @@
 #include "ScriptManager.h"
 #include "TWApp.h"
 #include "TWScript.h"
+#include "TWScriptable.h"
 
 #include <QLabel>
 #include <QCloseEvent>
@@ -29,7 +30,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 
-ScriptManager * ScriptManager::gManageScriptsWindow = NULL;
+ScriptManager * ScriptManager::gManageScriptsWindow = nullptr;
 QRect           ScriptManager::gGeometry;
 
 void ScriptManager::init()
@@ -64,7 +65,7 @@ void ScriptManager::closeEvent(QCloseEvent * event)
 void ScriptManager::showManageScripts()
 {
 	if (!gManageScriptsWindow)
-		gManageScriptsWindow = new ScriptManager(NULL);
+		gManageScriptsWindow = new ScriptManager(nullptr);
 
 	if (!gGeometry.isNull())
 		gManageScriptsWindow->setGeometry(gGeometry);
@@ -90,8 +91,8 @@ void ScriptManager::populateTree()
 	hookTree->clear();
 	standaloneTree->clear();
 	
-	populateTree(hookTree, NULL, hooks);
-	populateTree(standaloneTree, NULL, scripts);
+	populateTree(hookTree, nullptr, hooks);
+	populateTree(standaloneTree, nullptr, scripts);
 	
 	hookTree->expandAll();
 	standaloneTree->expandAll();
@@ -120,7 +121,7 @@ void ScriptManager::populateTree(QTreeWidget * tree, QTreeWidgetItem * parentIte
 			QFont f = item->font(0);
 			f.setBold(true);
 			item->setFont(0, f);
-			populateTree(NULL, item, list);
+			populateTree(nullptr, item, list);
 			setFolderCheckedState(item);
 		}
 	}
@@ -200,7 +201,7 @@ void ScriptManager::treeSelectionChanged()
 		QString url = sli->scriptLanguageURL();
 		QString str = sli->scriptLanguageName();
 		if (!url.isEmpty())
-			str = QString::fromLatin1("<a href=\"%1\">%2</a>").arg(url).arg(str);
+			str = QString::fromLatin1("<a href=\"%1\">%2</a>").arg(url, str);
 		addDetailsRow(rows, tr("Language: "), str);
 	}
 
@@ -210,9 +211,9 @@ void ScriptManager::treeSelectionChanged()
 	details->setHtml(QString::fromLatin1("<table>%1</table").arg(rows));
 }
 
-void ScriptManager::addDetailsRow(QString& html, const QString label, const QString value)
+void ScriptManager::addDetailsRow(QString& html, const QString & label, const QString & value)
 {
 	if (!value.isEmpty())
-		html += QString::fromLatin1("<tr><td>%1</td><td>%2</td></tr>").arg(label).arg(value);
+		html += QString::fromLatin1("<tr><td>%1</td><td>%2</td></tr>").arg(label, value);
 }
 

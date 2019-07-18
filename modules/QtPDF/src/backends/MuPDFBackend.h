@@ -55,7 +55,7 @@ protected:
 
   // The following two methods are not thread-safe because they don't acquire a
   // read lock. This is to enable methods that have a write lock to use them.
-  bool _isValid() const { return (_mupdf_data != NULL); }
+  bool _isValid() const { return (_mupdf_data != nullptr); }
   bool _isLocked() const { return (_isValid() && _permissionLevel == PermissionLevel_Locked); }
 
 public:
@@ -120,9 +120,9 @@ public:
   QList< QSharedPointer<Annotation::Link> > loadLinks();
   QList< QSharedPointer<Annotation::AbstractAnnotation> > loadAnnotations();
 
-  QList<SearchResult> search(QString searchText, SearchFlags flags);
+  QList<SearchResult> search(const QString & searchText, const SearchFlags & flags);
   virtual QList<Backend::Page::Box> boxes();
-  virtual QString selectedText(const QList<QPolygonF> & selection, QMap<int, QRectF> * wordBoxes = NULL, QMap<int, QRectF> * charBoxes = NULL);
+  virtual QString selectedText(const QList<QPolygonF> & selection, QMap<int, QRectF> * wordBoxes = nullptr, QMap<int, QRectF> * charBoxes = nullptr);
 };
 
 } // namespace MuPDF

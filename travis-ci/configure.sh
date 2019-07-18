@@ -18,7 +18,7 @@ print_info "Making build directory '${BUILDDIR}'"
 mkdir "${BUILDDIR}"
 cd "${BUILDDIR}"
 
-CMAKE_OPTS="-DTW_BUILD_ID='travis-ci' -DDESIRED_QT_VERSION=\"$QT\""
+CMAKE_OPTS="-DTW_BUILD_ID='travis-ci'"
 
 if [ "x${COVERAGE}" != "x" ]; then
 	CMAKE_OPTS="${CMAKE_OPTS} -DCMAKE_BUILD_TYPE=\"Debug\" -DWITH_COVERAGE=On"
@@ -37,8 +37,9 @@ elif [ "${TARGET_OS}" = "win" -a "${TRAVIS_OS_NAME}" = "linux" ]; then
 	print_info "Running CMake"
 	echo_and_run "${MXEDIR}/usr/bin/${MXETARGET}-cmake .. \
 		${CMAKE_OPTS} \
-		-DQTPDF_ADDITIONAL_LIBS='harfbuzz;freetype;harfbuzz_too;freetype;wtsapi32;glib-2.0;intl;iconv;ws2_32;winmm;tiff;webp;jpeg;openjp2;png;lcms2;lzma;bz2;pcre16;dwmapi;uxtheme;imm32' \
-		-DTEXWORKS_ADDITIONAL_LIBS='freetype;harfbuzz;freetype;wtsapi32;bz2;png;pcre16;ws2_32;winmm;opengl32;imm32;shlwapi;dwmapi;uxtheme' \
+		-DPLATFORM_DEPENDENCIES='freetype;harfbuzz_too;freetype;bz2' \
+		-DPoppler_ADDITIONAL_DEPENDENCIES='freetype;harfbuzz;freetype_too;glib-2.0;intl;iconv;ws2_32;winmm;tiff;webp;jpeg;openjp2;png;lcms2;lzma;bz2;pcre16;wtsapi32' \
+		-DTEXWORKS_ADDITIONAL_LIBS='wtsapi32;opengl32;imm32;shlwapi;dwmapi;uxtheme' \
 		-Dgp_tool='none'"
 	if [ -f "CMakeFiles/CMakeError.log" ]; then
 		echo "=== CMake Error Log ==="

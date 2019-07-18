@@ -21,6 +21,7 @@
 
 #include "TWSynchronizer.h"
 #include "TWApp.h"
+#include "TWUtils.h"
 #include "TeXDocument.h"
 #include "PDFDocument.h"
 
@@ -37,18 +38,18 @@
 
 TWSyncTeXSynchronizer::TWSyncTeXSynchronizer(const QString & filename)
 {
-  _scanner = SyncTeX::synctex_scanner_new_with_output_file(filename.toLocal8Bit().data(), NULL, 1);
+  _scanner = SyncTeX::synctex_scanner_new_with_output_file(filename.toLocal8Bit().data(), nullptr, 1);
 }
 
 TWSyncTeXSynchronizer::~TWSyncTeXSynchronizer()
 {
-  if (_scanner != NULL)
+  if (_scanner)
     synctex_scanner_free(_scanner);
 }
 
 bool TWSyncTeXSynchronizer::isValid() const
 {
-  return (_scanner != NULL);
+  return (_scanner != nullptr);
 }
 
 
@@ -93,7 +94,7 @@ TWSynchronizer::PDFSyncPoint TWSyncTeXSynchronizer::syncFromTeX(const TWSynchron
   retVal.filename = pdfFilename();
 
   if (SyncTeX::synctex_display_query(_scanner, name.toLocal8Bit().data(), src.line, src.col, -1) > 0) {
-    while ((node = SyncTeX::synctex_scanner_next_result(_scanner)) != NULL) {
+	while ((node = SyncTeX::synctex_scanner_next_result(_scanner))) {
       if (retVal.page < 0)
         retVal.page = SyncTeX::synctex_node_page(node);
       if (SyncTeX::synctex_node_page(node) != retVal.page)
@@ -126,7 +127,7 @@ TWSynchronizer::TeXSyncPoint TWSyncTeXSynchronizer::syncFromPDF(const TWSynchron
 
   if (SyncTeX::synctex_edit_query(_scanner, src.page, src.rects[0].left(), src.rects[0].top()) > 0) {
     SyncTeX::synctex_node_p node;
-    while ((node = SyncTeX::synctex_scanner_next_result(_scanner)) != NULL) {
+	while ((node = SyncTeX::synctex_scanner_next_result(_scanner))) {
       retVal.filename = QString::fromLocal8Bit(SyncTeX::synctex_scanner_get_name(_scanner, SyncTeX::synctex_node_tag(node)));
       retVal.line = SyncTeX::synctex_node_line(node);
       if (retVal.line <= 0)
@@ -238,7 +239,7 @@ void TWSyncTeXSynchronizer::_syncFromPDFFine(const TWSynchronizer::PDFSyncPoint 
   QList<QPolygonF> selection;
   if (SyncTeX::synctex_display_query(_scanner, dest.filename.toLocal8Bit().data(), dest.line, -1, src.page) > 0) {
 	SyncTeX::synctex_node_p node;
-	while ((node = SyncTeX::synctex_scanner_next_result(_scanner)) != NULL) {
+	while ((node = SyncTeX::synctex_scanner_next_result(_scanner))) {
       if (SyncTeX::synctex_node_page(node) != src.page)
         continue;
       QRectF nodeRect(synctex_node_box_visible_h(node),
@@ -250,7 +251,7 @@ void TWSyncTeXSynchronizer::_syncFromPDFFine(const TWSynchronizer::PDFSyncPoint 
   }
   // Find the box the user clicked on
   QMap<int, QRectF> boxes;
-  QString srcContext = pdfPage->selectedText(selection, NULL, &boxes);
+  QString srcContext = pdfPage->selectedText(selection, nullptr, &boxes);
   // Normalize the srcContext. selectedText() returns newline chars between
   // separate (output) lines that all correspond to the same input line
   // (different input lines are handled by SyncTeX). Here we replace those \n
@@ -316,7 +317,7 @@ int TWSyncTeXSynchronizer::_findCorrespondingPosition(const QString & srcContext
   // Search to the right
   // FIXME: Possibly use some form of bisectioning
   for (deltaBack = 1; col + deltaBack <= srcContext.length(); ++deltaBack) {
-    int c = destContext.count(srcContext.mid(col - deltaFront, deltaBack + deltaFront));
+    int c = destContext.count(srcContext.midRef(col - deltaFront, deltaBack + deltaFront));
     found = (c > 0);
     unique = (c == 1);
     if (!found || unique)
@@ -334,7 +335,7 @@ int TWSyncTeXSynchronizer::_findCorrespondingPosition(const QString & srcContext
     // Search to the left
     // FIXME: Possibly use some form of bisectioning
     for (deltaFront = 1; deltaFront <= col; ++deltaFront) {
-      int c = destContext.count(srcContext.mid(col - deltaFront, deltaBack + deltaFront));
+      int c = destContext.count(srcContext.midRef(col - deltaFront, deltaBack + deltaFront));
       found = (c > 0);
       unique = (c == 1);
       if (!found || unique)
@@ -352,5 +353,5 @@ int TWSyncTeXSynchronizer::_findCorrespondingPosition(const QString & srcContext
   // If we did not find any match return -1
   if (!found || (deltaBack == 0 && deltaFront == 0))
     return -1;
-  return destContext.indexOf(srcContext.mid(col - deltaFront, deltaBack + deltaFront)) + deltaFront;
+  return destContext.indexOf(srcContext.midRef(col - deltaFront, deltaBack + deltaFront)) + deltaFront;
 }

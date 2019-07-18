@@ -25,8 +25,7 @@
 #include <QDialog>
 #include "ui_ScriptManager.h"
 
-#include "TWScriptable.h"
-
+class TWScriptList;
 
 class ScriptManager : public QWidget, private Ui::ScriptManager
 {
@@ -48,7 +47,7 @@ private slots:
 	void treeSelectionChanged();
 
 private:
-	ScriptManager(QWidget * parent = NULL) : QWidget(parent) { init(); }
+	ScriptManager(QWidget * parent = nullptr) : QWidget(parent) { init(); }
 	
 	void init();
 	
@@ -56,7 +55,7 @@ private:
 	void populateTree(QTreeWidget * tree, QTreeWidgetItem * parentItem, const TWScriptList * scripts);
 	void setFolderCheckedState(QTreeWidgetItem * item);
 
-	void addDetailsRow(QString& html, const QString label, const QString value);
+	void addDetailsRow(QString& html, const QString & label, const QString & value);
 	
 	static ScriptManager * gManageScriptsWindow;
 	static QRect           gGeometry;

@@ -29,6 +29,7 @@
 #endif
 
 #include "TWScript.h"
+#include "scripting/ScriptAPIInterface.h"
 
 #include <QMetaMethod>
 #include <QMetaProperty>
@@ -39,9 +40,7 @@ class TWPythonPlugin : public QObject, public TWScriptLanguageInterface
 {
 	Q_OBJECT
 	Q_INTERFACES(TWScriptLanguageInterface)
-#if QT_VERSION >= 0x050000
 	Q_PLUGIN_METADATA(IID "org.tug.texworks.ScriptPlugins.PythonPlugin")
-#endif
 	
 public:
 	/** \brief Constructor
@@ -111,13 +110,13 @@ protected:
      *
 	 * \return	\c true on success, \c false if an error occured
 	 */
-	virtual bool execute(TWScriptAPI *tw) const;
+	virtual bool execute(Tw::Scripting::ScriptAPIInterface *tw) const;
 	
 	/** \brief Handler for attribute requests on QObjects
 	 *
 	 * \param	o			the pyQObject of which to retrieve the attribute value
 	 * \param	attr_name	the name of the attribute
-	 * \return	the python value on success, \c NULL if an error occured
+	 * \return	the python value on success, \c nullptr if an error occured
 	 */
 	static PyObject* getAttribute(PyObject * o, PyObject * attr_name);
 
@@ -137,7 +136,7 @@ protected:
 	 * \param	pyArgs	python tuple of arguments
 	 * \param	kw		dictionary of key-value argument pairs (not supported)
 	 * \return	the return value of the method (PyNone for void functions) on
-	 * 			success, \c NULL if an error occured
+	 * 			success, \c nullptr if an error occured
 	 */
 	static PyObject * callMethod(PyObject * o, PyObject * pyArgs, PyObject * kw);
 
@@ -153,9 +152,9 @@ protected:
 	 * \note	QObject* instances will be converted by QObjectToPython. Empty
 	 * 			variants will be converted to PyNone. QList will be converted to
 	 * 			python lists. If the value can't be converted, an error is
-	 * 			raised and \c NULL is returned.
+	 * 			raised and \c nullptr is returned.
 	 * \param	v	the QVariant to convert to a python value
-	 * \return	the python object on success, \c NULL if an error occured
+	 * \return	the python object on success, \c nullptr if an error occured
 	 */
 	static PyObject * VariantToPython(const QVariant & v);
 

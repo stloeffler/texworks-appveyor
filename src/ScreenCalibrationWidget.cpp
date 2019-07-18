@@ -3,10 +3,17 @@
 #include <QStyle>
 #include <QApplication>
 
-ScreenCalibrationWidget::ScreenCalibrationWidget(QWidget *parent) : QWidget(parent), _contextMenuActionGroup(this)
+ScreenCalibrationWidget::ScreenCalibrationWidget(QWidget *parent)
+	: QWidget(parent)
+	, _majorTickHeight(20)
+	, _mediumTickHeight(10)
+	, _minorTickHeight(5)
+	, _paperTickHeight(40)
+	, _contextMenuActionGroup(this)
+	, _hSpace(0)
+	, _mouseDownInches(0)
+	, _isDragging(false)
 {
-	_isDragging = false;
-
 	_sbDPI = new QDoubleSpinBox(this);
 	_sbDPI->setRange(0, 9999);
 	_sbDPI->setValue(physicalDpiX());
@@ -19,12 +26,8 @@ ScreenCalibrationWidget::ScreenCalibrationWidget(QWidget *parent) : QWidget(pare
 	setToolTip(tr("Drag the ruler or change the value to match real world lengths.\nCommon paper sizes are marked as well (you may need to resize the dialog window to see them).\nUse the context menu to change the units."));
 
 	switch(locale().measurementSystem()) {
-#if QT_VERSION < 0x050000
-		case QLocale::ImperialSystem:
-#else
 		case QLocale::ImperialUSSystem:
 		case QLocale::ImperialUKSystem:
-#endif
 			_curUnit = 1;
 			break;
 		default:
@@ -37,14 +40,14 @@ ScreenCalibrationWidget::ScreenCalibrationWidget(QWidget *parent) : QWidget(pare
 
 void ScreenCalibrationWidget::recalculateSizes()
 {
-	_majorTickHeight = 1.2 * fontMetrics().lineSpacing();
-	_mediumTickHeight = 0.5 * _majorTickHeight;
-	_minorTickHeight = 0.25 * _majorTickHeight;
-	_paperTickHeight = 2.2 * fontMetrics().lineSpacing();
+	_majorTickHeight = static_cast<unsigned int>(qRound(1.2 * fontMetrics().lineSpacing()));
+	_mediumTickHeight = static_cast<unsigned int>(qRound(0.5 * _majorTickHeight));
+	_minorTickHeight = static_cast<unsigned int>(qRound(0.25 * _majorTickHeight));
+	_paperTickHeight = static_cast<unsigned int>(qRound(2.2 * fontMetrics().lineSpacing()));
 	_hSpace = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
 	if (_hSpace < 0)
 		_hSpace = style()->layoutSpacing(QSizePolicy::SpinBox, QSizePolicy::DefaultType, Qt::Horizontal);
-	setMinimumHeight(_paperTickHeight + 0.2 * fontMetrics().lineSpacing());
+	setMinimumHeight(static_cast<int>(_paperTickHeight) + qRound(0.2 * fontMetrics().lineSpacing()));
 }
 
 void ScreenCalibrationWidget::retranslate()
@@ -123,11 +126,12 @@ void ScreenCalibrationWidget::setUnit(const int unitIdx)
 
 void ScreenCalibrationWidget::paintEvent(QPaintEvent * event)
 {
+	Q_UNUSED(event)
 	Q_ASSERT(_sbDPI);
 	float x;
 
 	double dpi = _sbDPI->value(); // dots per inch
-	double dpu = dpi * _units[_curUnit].unitsPerInch; // dots per unit
+	double dpu = dpi * static_cast<double>(_units[_curUnit].unitsPerInch); // dots per unit
 	int majorTick, minorTick;
 
 	int y = _rulerRect.top();

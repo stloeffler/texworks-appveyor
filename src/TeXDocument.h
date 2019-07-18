@@ -29,12 +29,11 @@
 #include <QProcess>
 #include <QDateTime>
 #include <QSignalMapper>
+#include <QMouseEvent>
 
 #include "ui_TeXDocument.h"
 
 #include "FindDialog.h"
-#include "TWApp.h"
-#include "ClickableLabel.h"
 
 #include <hunspell.h>
 
@@ -50,6 +49,7 @@ class QFileSystemWatcher;
 
 class TeXHighlighter;
 class PDFDocument;
+class ClickableLabel;
 
 const int kTeXWindowStateVersion = 1; // increment this if we add toolbars/docks/etc
 
@@ -109,7 +109,7 @@ public:
 		int			level;
 		QString		text;
 		Tag(const QTextCursor& curs, int lvl, const QString& txt)
-			: cursor(curs), level(lvl), text(txt) { };
+			: cursor(curs), level(lvl), text(txt) { }
 	};
 	const QList<Tag> getTags() const
 		{ return tags; }
@@ -188,10 +188,7 @@ public slots:
 	void selectRange(int start, int length = 0);
 	void insertText(const QString& text);
 	void selectAll() { textEdit->selectAll(); }
- 	void setWindowModified(bool modified) {
-		QMainWindow::setWindowModified(modified);
-		TWApp::instance()->updateWindowMenus();
-	}
+	void setWindowModified(bool modified);
 	void setSmartQuotesMode(const QString& mode);
 	void setAutoIndentMode(const QString& mode);
 	void setSyntaxColoringMode(const QString& mode);
@@ -230,8 +227,8 @@ private:
 	bool saveFilesHavingRoot(const QString& aRootFile);
 	void clearFileWatcher();
 	QTextCodec *scanForEncoding(const QString &peekStr, bool &hasMetadata, QString &reqName);
-	QString readFile(const QString &fileName, QTextCodec **codecUsed, int *lineEndings = NULL, QTextCodec * forceCodec = NULL);
-	void loadFile(const QString &fileName, bool asTemplate = false, bool inBackground = false, bool reload = false, QTextCodec * forceCodec = NULL);
+	QString readFile(const QString &fileName, QTextCodec **codecUsed, int *lineEndings = nullptr, QTextCodec * forceCodec = nullptr);
+	void loadFile(const QString &fileName, bool asTemplate = false, bool inBackground = false, bool reload = false, QTextCodec * forceCodec = nullptr);
 	bool saveFile(const QString &fileName);
 	void setCurrentFile(const QString &fileName);
 	void saveRecentFileInfo();

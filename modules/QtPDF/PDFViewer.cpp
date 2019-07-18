@@ -1,6 +1,6 @@
 #include "PDFViewer.h"
 
-PDFViewer::PDFViewer(const QString pdf_doc, QWidget *parent, Qt::WindowFlags flags) :
+PDFViewer::PDFViewer(const QString & pdf_doc, QWidget *parent, Qt::WindowFlags flags) :
   QMainWindow(parent, flags)
 {
   QtPDF::PDFDocumentWidget *docWidget = new QtPDF::PDFDocumentWidget(this);
@@ -91,7 +91,7 @@ void PDFViewer::open()
     return;
 
   QtPDF::PDFDocumentWidget * docWidget = qobject_cast<QtPDF::PDFDocumentWidget*>(centralWidget());
-  Q_ASSERT(docWidget != NULL);
+  Q_ASSERT(docWidget != nullptr);
   docWidget->load(pdf_doc);
 }
 

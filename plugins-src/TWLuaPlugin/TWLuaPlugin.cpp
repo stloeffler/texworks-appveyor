@@ -20,9 +20,7 @@
 */
 
 #include "TWLuaPlugin.h"
-#include "TWScriptAPI.h"
 
-#include <QCoreApplication>
 #include <QTextStream>
 #include <QtPlugin>
 #include <QMetaObject>
@@ -48,12 +46,8 @@ TWScript* TWLuaPlugin::newScript(const QString& fileName)
 	return new LuaScript(this, fileName);
 }
 
-#if QT_VERSION < 0x050000
-Q_EXPORT_PLUGIN2(TWLuaPlugin, TWLuaPlugin)
-#endif
 
-
-bool LuaScript::execute(TWScriptAPI *tw) const
+bool LuaScript::execute(Tw::Scripting::ScriptAPIInterface *tw) const
 {
 	int status;
 	lua_State * L = m_LuaPlugin->getLuaState();
@@ -62,7 +56,7 @@ bool LuaScript::execute(TWScriptAPI *tw) const
 		return false;
 
 	// register the TW interface for use in lua
-	if (!LuaScript::pushQObject(L, tw, false)) {
+	if (!LuaScript::pushQObject(L, tw->self(), false)) {
 		tw->SetResult(tr("Could not register TW"));
 		return false;
 	}
@@ -129,10 +123,8 @@ int LuaScript::pushVariant(lua_State * L, const QVariant & v, const bool throwEr
 	int i;
 	QVariantList::const_iterator iList;
 	QVariantList list;
-#if QT_VERSION >= 0x040500
 	QVariantHash::const_iterator iHash;
 	QVariantHash hash;
-#endif
 	QVariantMap::const_iterator iMap;
 	QVariantMap map;
 
@@ -163,38 +155,32 @@ int LuaScript::pushVariant(lua_State * L, const QVariant & v, const bool throwEr
 			list = v.toList();
 
 			lua_newtable(L);
-			for (i = 1, iList = list.begin(); iList != list.end(); ++iList, ++i) {
+			for (i = 1, iList = list.cbegin(); iList != list.cend(); ++iList, ++i) {
 				lua_pushnumber(L, i);
 				LuaScript::pushVariant(L, *iList);
 				lua_settable(L, -3);
 			}
 			return 1;
-#if QT_VERSION >= 0x040500
 		case QVariant::Hash:
 			hash = v.toHash();
 			
 			lua_newtable(L);
-			for (iHash = hash.begin(); iHash != hash.end(); ++iHash) {
+			for (iHash = hash.cbegin(); iHash != hash.cend(); ++iHash) {
 				LuaScript::pushVariant(L, iHash.value());
 				lua_setfield(L, -2, qPrintable(iHash.key()));
 			}
 			return 1;
-#endif
 		case QVariant::Map:
 			map = v.toMap();
 			
 			lua_newtable(L);
-			for (iMap = map.begin(); iMap != map.end(); ++iMap) {
+			for (iMap = map.cbegin(); iMap != map.cend(); ++iMap) {
 				LuaScript::pushVariant(L, iMap.value());
 				lua_setfield(L, -2, qPrintable(iMap.key()));
 			}
 			return 1;
 		case QMetaType::QObjectStar:
 			return LuaScript::pushQObject(L, v.value<QObject*>(), throwError);
-		#if QT_VERSION < 0x050000
-		case QMetaType::QWidgetStar:
-			return LuaScript::pushQObject(L, qobject_cast<QObject*>(v.value<QWidget*>()), throwError);
-		#endif
 		default:
 			// Don't throw errors if we are not in protected mode in lua, i.e.
 			// if the call to this function originated from C code, not in response
@@ -365,7 +351,7 @@ QVariant LuaScript::getLuaStackValue(lua_State * L, int idx, const bool throwErr
 				if (isQObject) {
 					lua_getfield(L, -1, "__qobject");
 					if (lua_islightuserdata(L, -1)) {
-						QObject * obj = (QObject*)lua_touserdata(L, -1);
+						QObject * obj = reinterpret_cast<QObject*>(lua_touserdata(L, -1));
 						lua_pop(L, 2);
 						return QVariant::fromValue(obj);
 					}

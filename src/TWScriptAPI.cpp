@@ -23,6 +23,9 @@
 #include "TWSystemCmd.h"
 #include "TWUtils.h"
 #include "TWApp.h"
+#include "Engine.h"
+#include "TWScript.h"
+#include "DefaultPrefs.h"
 
 #include <QObject>
 #include <QString>
@@ -44,7 +47,12 @@ TWScriptAPI::TWScriptAPI(TWScript* script, QObject* twapp, QObject* ctx, QVarian
 	  m_result(res)
 {
 }
-	
+
+QObject* TWScriptAPI::GetScript()
+{
+	return m_script;
+}
+
 void TWScriptAPI::SetResult(const QVariant& rval)
 {
 	m_result = rval;
@@ -112,11 +120,7 @@ QVariant TWScriptAPI::getInt(QWidget* parent, const QString& title, const QStrin
 				int value, int min, int max, int step)
 {
 	bool ok;
-#if QT_VERSION >= 0x040500
 	int i = QInputDialog::getInt(parent, title, label, value, min, max, step, &ok);
-#else
-	int i = QInputDialog::getInteger(parent, title, label, value, min, max, step, &ok);
-#endif
 	return ok ? QVariant(i) : QVariant();
 }
 
@@ -153,7 +157,7 @@ QWidget * TWScriptAPI::progressDialog(QWidget * parent)
 {
 	QProgressDialog * dlg = new QProgressDialog(parent);
 	connect(this, SIGNAL(destroyed(QObject*)), dlg, SLOT(deleteLater()));
-	dlg->setCancelButton(NULL);
+	dlg->setCancelButton(nullptr);
 	dlg->show();
 	return dlg;
 }
@@ -177,7 +181,7 @@ QWidget * TWScriptAPI::createUI(const QString& filename, QWidget * parent)
 {
 	QFileInfo fi(QFileInfo(m_script->getFilename()).absoluteDir(), filename);
 	if (!fi.isReadable())
-		return NULL;
+		return nullptr;
 	QFile file(fi.canonicalFilePath());
 	QUiLoader loader;
 	QWidget *widget = loader.load(&file, parent);
@@ -218,7 +222,7 @@ QMap<QString, QVariant> TWScriptAPI::system(const QString& cmdline, bool waitFor
 		return retVal;
 	}
 
-	if (m_script->mayExecuteSystemCommand(cmdline, m_target)) {
+	if (mayExecuteSystemCommand(cmdline, m_target)) {
 		TWSystemCmd *process = new TWSystemCmd(this, waitForResult, !waitForResult);
 		if (waitForResult) {
 			process->setProcessChannelMode(QProcess::MergedChannels);
@@ -268,7 +272,7 @@ QMap<QString, QVariant> TWScriptAPI::launchFile(const QString& fileName) const
 	retVal[QString::fromLatin1("message")] = QVariant();
 
 	// it's OK to "launch" a directory, as that doesn't normally execute anything
-	if (finfo.isDir() || (m_script && m_script->mayExecuteSystemCommand(fileName, m_target))) {
+	if (finfo.isDir() || mayExecuteSystemCommand(fileName, m_target)) {
 		if (QDesktopServices::openUrl(QUrl::fromLocalFile(fileName)))
 			retVal[QString::fromLatin1("status")] = SystemAccess_OK;
 		else {
@@ -286,11 +290,10 @@ int TWScriptAPI::writeFile(const QString& filename, const QString& content) cons
 {
 	// relative paths are taken to be relative to the folder containing the
 	// executing script's file
-	QFileInfo fi(filename);
 	QDir scriptDir(QFileInfo(m_script->getFilename()).dir());
 	QString path = scriptDir.absoluteFilePath(filename);
 
-	if (!m_script->mayWriteFile(path, m_target))
+	if (!mayWriteFile(path, m_target))
 		return TWScriptAPI::SystemAccess_PermissionDenied;
 	
 	QFile fout(path);
@@ -316,11 +319,10 @@ QMap<QString, QVariant> TWScriptAPI::readFile(const QString& filename) const
 	retVal[QString::fromLatin1("result")] = QVariant();
 	retVal[QString::fromLatin1("message")] = QVariant();
 
-	QFileInfo fi(filename);
 	QDir scriptDir(QFileInfo(m_script->getFilename()).dir());
 	QString path = scriptDir.absoluteFilePath(filename);
 
-	if (!m_script->mayReadFile(path, m_target)) {
+	if (!mayReadFile(path, m_target)) {
 		retVal[QString::fromLatin1("message")] = tr("Reading all files is disabled (see Preferences)");
 		retVal[QString::fromLatin1("status")] = TWScriptAPI::SystemAccess_PermissionDenied;
 		return retVal;
@@ -344,11 +346,10 @@ QMap<QString, QVariant> TWScriptAPI::readFile(const QString& filename) const
 
 int TWScriptAPI::fileExists(const QString& filename) const
 {
-	QFileInfo fi(filename);
 	QDir scriptDir(QFileInfo(m_script->getFilename()).dir());
 	QString path = scriptDir.absoluteFilePath(filename);
 
-	if (!m_script->mayReadFile(path, m_target))
+	if (!mayReadFile(path, m_target))
 		return SystemAccess_PermissionDenied;
 	return (QFileInfo(path).exists() ? SystemAccess_OK : SystemAccess_Failed);
 }
@@ -387,3 +388,61 @@ QList<QVariant> TWScriptAPI::getEngineList() const
 	return retVal;
 }
 
+bool TWScriptAPI::mayExecuteSystemCommand(const QString& cmd, QObject * context) const
+{
+	Q_UNUSED(cmd)
+	Q_UNUSED(context)
+
+	// cmd may be a true command line, or a single file/directory to run or open
+	QSETTINGS_OBJECT(settings);
+	return settings.value(QString::fromLatin1("allowSystemCommands"), false).toBool();
+}
+
+bool TWScriptAPI::mayWriteFile(const QString& filename, QObject * context) const
+{
+	Q_UNUSED(filename)
+	Q_UNUSED(context)
+
+	QSETTINGS_OBJECT(settings);
+	return settings.value(QString::fromLatin1("allowScriptFileWriting"), false).toBool();
+}
+
+bool TWScriptAPI::mayReadFile(const QString& filename, QObject * context) const
+{
+	QSETTINGS_OBJECT(settings);
+	if (!m_script)
+		return false;
+
+	QDir scriptDir(QFileInfo(m_script->getFilename()).absoluteDir());
+	QVariant targetFile;
+	QDir targetDir;
+
+	if (settings.value(QString::fromLatin1("allowScriptFileReading"), kDefault_AllowScriptFileReading).toBool())
+		return true;
+
+	// even if global reading is disallowed, some exceptions may apply
+	QFileInfo fi(QDir::cleanPath(filename));
+
+	// reading in subdirectories of the script file's directory is always allowed
+	if (!scriptDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
+		return true;
+
+	if (context) {
+		// reading subdirectories of the current file is always allowed
+		targetFile = context->property("fileName");
+		if (targetFile.isValid() && !targetFile.toString().isEmpty()) {
+			targetDir = QFileInfo(targetFile.toString()).absoluteDir();
+			if (!targetDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
+				return true;
+		}
+		// reading subdirectories of the root file is always allowed
+		targetFile = context->property("rootFileName");
+		if (targetFile.isValid() && !targetFile.toString().isEmpty()) {
+			targetDir = QFileInfo(targetFile.toString()).absoluteDir();
+			if (!targetDir.relativeFilePath(fi.absolutePath()).startsWith(QLatin1String("..")))
+				return true;
+		}
+	}
+
+	return false;
+}

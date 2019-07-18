@@ -25,6 +25,7 @@
 #include "PDFDocument.h"
 #include "TeXHighlighter.h"
 #include "CompletingEdit.h"
+#include "TWUtils.h"
 
 #include <QFontDatabase>
 #include <QTextCodec>
@@ -38,6 +39,8 @@
 
 PrefsDialog::PrefsDialog(QWidget *parent)
 	: QDialog(parent)
+	, pathsChanged(false)
+	, toolsChanged(false)
 {
 	init();
 }
@@ -74,7 +77,7 @@ void PrefsDialog::changedTabPanel(int index)
 	page->clearFocus();
 	switch (index) {
 		case 0: // General
-			if (page->focusWidget() != NULL)
+			if (page->focusWidget())
 				page->focusWidget()->clearFocus();
 			break;
 		case 1: // Editor
@@ -89,7 +92,7 @@ void PrefsDialog::changedTabPanel(int index)
 			binPathList->setFocus();
 			break;
 		case 4: // Script
-			if (page->focusWidget() != NULL)
+			if (page->focusWidget())
 				page->focusWidget()->clearFocus();
 			break;
 	}
@@ -448,7 +451,7 @@ static bool dictPairLessThan(const DictPair& d1, const DictPair& d2)
 
 QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 {
-	PrefsDialog dlg(NULL);
+	PrefsDialog dlg(nullptr);
 	
 	QStringList nameList;
 	foreach (QTextCodec *codec, *TWUtils::findCodecs())
@@ -479,9 +482,9 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 		else {
 			QLocale::Country country = loc.country();
 			if (country != QLocale::AnyCountry)
-				label = QString::fromLatin1("%1 - %2 (%3)").arg(QLocale::languageToString(loc.language())).arg(QLocale::countryToString(country)).arg(dict);
+				label = QString::fromLatin1("%1 - %2 (%3)").arg(QLocale::languageToString(loc.language()), QLocale::countryToString(country), dict);
 			else
-				label = QString::fromLatin1("%1 (%2)").arg(QLocale::languageToString(loc.language())).arg(dict);
+				label = QString::fromLatin1("%1 (%2)").arg(QLocale::languageToString(loc.language()), dict);
 		}
 
 		dictList << qMakePair(label, dict);
@@ -649,9 +652,6 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 	if (TWApp::instance()->getScriptManager()->languages().size() <= 1)
 		dlg.enableScriptingPlugins->setEnabled(false);
 	dlg.scriptDebugger->setChecked(settings.value(QString::fromLatin1("scriptDebugger"), kDefault_ScriptDebugger).toBool());
-#if QT_VERSION < 0x040500
-	dlg.scriptDebugger->setEnabled(false);
-#endif
 	
 	// Decide which tab to select initially
 	if (sCurrentTab == -1) {
@@ -684,7 +684,7 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 			settings.setValue(QString::fromLatin1("toolBarShowText"), showText);
 			foreach (QWidget *widget, qApp->topLevelWidgets()) {
 				QMainWindow *theWindow = qobject_cast<QMainWindow*>(widget);
-				if (theWindow != NULL)
+				if (theWindow)
 					TWUtils::applyToolbarOptions(theWindow, iconSize, showText);
 			}
 		}
@@ -709,7 +709,7 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 					break;
 				default:
 					{
-						QString locale = trList->at(dlg.localePopup->currentIndex() - kFirstTranslationIndex);
+						const QString & locale = trList->at(dlg.localePopup->currentIndex() - kFirstTranslationIndex);
 						TWApp::instance()->applyTranslation(locale);
 						settings.setValue(QString::fromLatin1("locale"), locale);
 					}
@@ -781,7 +781,7 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 			settings.setValue(QString::fromLatin1("previewResolution"), resolution);
 			foreach (QWidget *widget, qApp->topLevelWidgets()) {
 				PDFDocument *thePdfDoc = qobject_cast<PDFDocument*>(widget);
-				if (thePdfDoc != NULL)
+				if (thePdfDoc)
 					thePdfDoc->setResolution(resolution);
 			}
 		}
@@ -805,7 +805,7 @@ QDialog::DialogCode PrefsDialog::doPrefsDialog(QWidget *parent)
 		if (oldMagSize != magSize || oldCircular != circular) {
 			foreach (QWidget *widget, qApp->topLevelWidgets()) {
 				PDFDocument *thePdfDoc = qobject_cast<PDFDocument*>(widget);
-				if (thePdfDoc != NULL)
+				if (thePdfDoc)
 					thePdfDoc->resetMagnifier();
 			}
 		}
@@ -939,7 +939,7 @@ QDialog::DialogCode ToolConfig::doToolConfig(QWidget *parent, Engine &engine)
 
 	DialogCode	result = (DialogCode)dlg.exec();
 	if (result == Accepted) {
-		dlg.arguments->setCurrentItem(NULL); // ensure editing is terminated
+		dlg.arguments->setCurrentItem(nullptr); // ensure editing is terminated
 		engine.setName(dlg.toolName->text());
 		engine.setProgram(dlg.program->text());
 		QStringList args;
