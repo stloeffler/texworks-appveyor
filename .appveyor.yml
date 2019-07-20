@@ -33,4 +33,4 @@ test_script:
 before_deploy:
 
 artifacts:
-  - path: ${APPVEYOR_BUILD_FOLDER}/artifact
+  - path: artifact
