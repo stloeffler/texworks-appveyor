@@ -29,6 +29,8 @@ windeployqt --release "${APPVEYOR_BUILD_FOLDER}/artifact/bin/TeXworks.exe"
 #cp /mingw64/bin/libtiff-*.dll "${APPVEYOR_BUILD_FOLDER}/artifact/bin/"
 #cp /mingw64/bin/libopenjp2-*.dll "${APPVEYOR_BUILD_FOLDER}/artifact/bin/"
 
+print_info "Resolving DLL Dependencies"
+
 python ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/resolve-dlls.py "${APPVEYOR_BUILD_FOLDER}/artifact/bin/TeXworks.exe"
 
 # Copy poppler data
