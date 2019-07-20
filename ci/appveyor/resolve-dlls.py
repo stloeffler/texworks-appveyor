@@ -48,14 +48,14 @@ for dep in sorted(getDependenciesRecursively(sys.argv[1])):
 	print(dep)
 	src = os.path.normpath(os.path.join(BASEDIR, dep))
 	print('src = %s' % src)
-	if not os.path.exists(src):
-		print('no source')
-		print('Skipping %s - not in %s' % (dep, BASEDIR))
-		continue
+#	if not os.path.exists(src):
+#		print('no source')
+#		print('Skipping %s - not in %s' % (dep, BASEDIR))
+#		continue
 	dst = os.path.normpath(os.path.join(OUTDIR, dep))
 	print('dst = %s' % dst)
 	if os.path.exists(dst):
-		print('no dest')
+		print('dest exists')
 		print('Skipping %s - already in %s' % (dep, OUTDIR))
 		continue
 	print('%s > %s' % (src, dst))
