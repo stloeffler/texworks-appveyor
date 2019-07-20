@@ -1,7 +1,8 @@
 print_headline()
 {
 	local MSG="$1"
-	printf '%b' "\033[34;1m${MSG}\033[0m\n"
+#	printf '%b' "\033[34;1m${MSG}\033[0m\n"
+	appveyor AddMessage "${MSG}"
 }
 
 print_info() {
