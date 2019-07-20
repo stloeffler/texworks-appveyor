@@ -8,7 +8,7 @@ OBJDUMP = 'objdump'
 BASEDIR = 'c:/msys64/mingw64/bin'
 
 def getDependencies(filename):
-	out = subprocess.check_output([OBJDUMP, '-x', filename]).decode()
+	out = subprocess.check_output([OBJDUMP, '-x', filename], universal_newlines = True)
 	print('### objdump %s: %i B' % (filename, len(out)))
 	return set(re.findall('DLL Name: (.*)', out))
 
