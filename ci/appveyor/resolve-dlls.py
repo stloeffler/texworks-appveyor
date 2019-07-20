@@ -1,5 +1,7 @@
 import subprocess, os.path, sys, re, shutil
 
+import os
+
 #OBJDUMP = '/opt/mxe/usr/bin/i686-w64-mingw32.shared-objdump'
 #BASEDIR = '/opt/mxe/usr/i686-w64-mingw32.shared/bin/'
 OBJDUMP = 'objdump'
@@ -35,16 +37,22 @@ OUTDIR = os.path.dirname(sys.argv[1])
 print('Source dir: %s' % BASEDIR)
 print('Target dir: %s' % OUTDIR)
 
+print('ls %s' % BASEDIR)
+print(os.listdir(BASEDIR))
+
+print('ls c:/msys64/mingw64/bin')
+print(os.listdir('c:/msys64/mingw64/bin'))
+
 
 for dep in sorted(getDependenciesRecursively(sys.argv[1])):
 	print(dep)
-	src = os.path.join(BASEDIR, dep)
+	src = os.path.normpath(os.path.join(BASEDIR, dep))
 	print('src = %s' % src)
 	if not os.path.exists(src):
 		print('no source')
 		print('Skipping %s - not in %s' % (dep, BASEDIR))
 		continue
-	dst = os.path.join(OUTDIR, dep)
+	dst = os.path.normpath(os.path.join(OUTDIR, dep))
 	print('dst = %s' % dst)
 	if os.path.exists(dst):
 		print('no dest')
