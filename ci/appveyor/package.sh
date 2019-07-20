@@ -37,5 +37,6 @@ python ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/resolve-dlls.py "${APPVEYOR_BUILD_FO
 cp -r share "${APPVEYOR_BUILD_FOLDER}/artifact/"
 
 # FIXME: DEBUG
-ls -lisaR "${APPVEYOR_BUILD_FOLDER}/artifact/"
+#ls -lisaR "${APPVEYOR_BUILD_FOLDER}/artifact/"
+ls -lisa "/c/msys64/mingw64/bin"
 du -hd 1 "${APPVEYOR_BUILD_FOLDER}/artifact/"
