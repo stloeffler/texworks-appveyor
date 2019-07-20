@@ -8,7 +8,7 @@ make VERBOSE=1 install
 
 strip -s "${APPVEYOR_BUILD_FOLDER}/artifact/bin/TeXworks.exe"
 
-windeployqt--release "${APPVEYOR_BUILD_FOLDER}/artifact/bin/TeXworks.exe"
+windeployqt --release "${APPVEYOR_BUILD_FOLDER}/artifact/bin/TeXworks.exe"
 
 cp -r share "${APPVEYOR_BUILD_FOLDER}/artifact/"
 
