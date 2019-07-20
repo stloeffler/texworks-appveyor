@@ -31,3 +31,6 @@ test_script:
   - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/run-tests.sh"'
 
 before_deploy:
+
+artifacts:
+  - path: ${APPVEYOR_BUILD_FOLDER}/artifact
