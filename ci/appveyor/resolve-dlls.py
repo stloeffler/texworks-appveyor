@@ -5,7 +5,7 @@ import os
 #OBJDUMP = '/opt/mxe/usr/bin/i686-w64-mingw32.shared-objdump'
 #BASEDIR = '/opt/mxe/usr/i686-w64-mingw32.shared/bin/'
 OBJDUMP = 'objdump'
-BASEDIR = '/c/msys64/mingw64/bin'
+BASEDIR = 'c:/msys64/mingw64/bin'
 
 def getDependencies(filename):
 	out = subprocess.check_output([OBJDUMP, '-x', filename]).decode()
@@ -40,8 +40,8 @@ print('Target dir: %s' % OUTDIR)
 print('ls %s' % BASEDIR)
 print(os.listdir(BASEDIR))
 
-print('ls c:/msys64/mingw64/bin')
-print(os.listdir('c:/msys64/mingw64/bin'))
+#print('ls c:/msys64/mingw64/bin')
+#print(os.listdir('c:/msys64/mingw64/bin'))
 
 
 for dep in sorted(getDependenciesRecursively(sys.argv[1])):
