@@ -3,7 +3,7 @@ import subprocess, os.path, sys, re, shutil
 #OBJDUMP = '/opt/mxe/usr/bin/i686-w64-mingw32.shared-objdump'
 #BASEDIR = '/opt/mxe/usr/i686-w64-mingw32.shared/bin/'
 OBJDUMP = 'objdump'
-BASEDIR = '/mingw64/bin'
+BASEDIR = 'C:/msys64/mingw64/bin'
 
 def getDependencies(filename):
 	out = subprocess.check_output([OBJDUMP, '-x', filename]).decode()
@@ -39,11 +39,15 @@ print('Target dir: %s' % OUTDIR)
 for dep in sorted(getDependenciesRecursively(sys.argv[1])):
 	print(dep)
 	src = os.path.join(BASEDIR, dep)
+	print('src = %s' % src)
 	if not os.path.exists(src):
+		print('no source')
 		print('Skipping %s - not in %s' % (dep, BASEDIR))
 		continue
 	dst = os.path.join(OUTDIR, dep)
+	print('dst = %s' % dst)
 	if os.path.exists(dst):
+		print('no dest')
 		print('Skipping %s - already in %s' % (dep, OUTDIR))
 		continue
 	print('%s > %s' % (src, dst))
