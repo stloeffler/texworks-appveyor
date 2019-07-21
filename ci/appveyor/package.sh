@@ -11,7 +11,8 @@ print_headline "Packaging TeXworks"
 TW_VERSION=$(sed -ne 's,^#define TEXWORKS_VERSION[[:space:]]"\([0-9.]\{3\,\}\)"$,\1,p' "${APPVEYOR_BUILD_FOLDER}/src/TWVersion.h")
 echo "TW_VERSION = ${TW_VERSION}"
 
-GIT_HASH=$(git --git-dir=".git" show --no-patch --pretty="%h")
+#GIT_HASH=$(git --git-dir=".git" show --no-patch --pretty="%h")
+GIT_HASH="${APPVEYOR_REPO_COMMIT:0:7}"
 echo "GIT_HASH = ${GIT_HASH}"
 
 DATE_HASH=$(date -u +"%Y%m%d%H%M")
@@ -42,7 +43,7 @@ cp -r share "${APPVEYOR_BUILD_FOLDER}/artifact/"
 
 # Package archive
 cd "${APPVEYOR_BUILD_FOLDER}/artifact"
-ARCHIVE="TeXworks-${TARGET_OS}-${VERSION_NAME}.zip"
+ARCHIVE="TeXworks-win-${VERSION_NAME}.zip"
 7z a "$ARCHIVE" *
 
 appveyor PushArtifact "${ARCHIVE}"
