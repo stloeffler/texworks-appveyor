@@ -5,6 +5,23 @@
 
 print_headline "Packaging TeXworks"
 
+# Gather information
+
+# GNU extensions for sed are not supported; on Linux, --posix mimicks this behaviour
+TW_VERSION=$(sed -ne 's,^#define TEXWORKS_VERSION[[:space:]]"\([0-9.]\{3\,\}\)"$,\1,p' "${APPVEYOR_BUILD_FOLDER}/src/TWVersion.h")
+echo "TW_VERSION = ${TW_VERSION}"
+
+GIT_HASH=$(git --git-dir=".git" show --no-patch --pretty="%h")
+echo "GIT_HASH = ${GIT_HASH}"
+
+DATE_HASH=$(date -u +"%Y%m%d%H%M")
+echo "DATE_HASH = ${DATE_HASH}"
+
+VERSION_NAME="${TW_VERSION}-${DATE_HASH}-git_${GIT_HASH}"
+echo "VERSION_NAME = ${VERSION_NAME}"
+
+# Make Install
+
 cd "${APPVEYOR_BUILD_FOLDER}/build"
 
 make VERBOSE=1 install
@@ -22,7 +39,10 @@ python ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/resolve-dlls.py "${APPVEYOR_BUILD_FO
 # Copy poppler data
 cp -r share "${APPVEYOR_BUILD_FOLDER}/artifact/"
 
-# FIXME: DEBUG
-#ls -lisaR "${APPVEYOR_BUILD_FOLDER}/artifact/"
-ls -lisa "/c/msys64/mingw64/bin"
-du -hd 1 "${APPVEYOR_BUILD_FOLDER}/artifact/"
+
+# Package archive
+cd "${APPVEYOR_BUILD_FOLDER}/artifact"
+ARCHIVE="TeXworks-${TARGET_OS}-${VERSION_NAME}.zip"
+7z a "$ARCHIVE" *
+
+appveyor PushArtifact "${ARCHIVE}"

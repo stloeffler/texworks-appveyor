@@ -32,5 +32,5 @@ test_script:
 
 before_deploy:
 
-artifacts:
-  - path: artifact
+#artifacts:
+#  - path: artifact
