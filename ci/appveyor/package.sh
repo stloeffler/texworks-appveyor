@@ -39,6 +39,7 @@ python ${APPVEYOR_BUILD_FOLDER}/ci/appveyor/resolve-dlls.py "${APPVEYOR_BUILD_FO
 
 # Copy poppler data
 cp -r share "${APPVEYOR_BUILD_FOLDER}/artifact/"
+cp -r "${APPVEYOR_BUILD_FOLDER}/win32/fonts" "${APPVEYOR_BUILD_FOLDER}/artifact/share/"
 
 
 # Package archive
