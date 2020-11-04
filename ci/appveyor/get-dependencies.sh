@@ -7,7 +7,10 @@
 print_headline "Installing dependencies"
 pacman --noconfirm -S mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw-w64-x86_64-lcms2 mingw-w64-x86_64-libpng mingw-w64-x86_64-libtiff mingw-w64-x86_64-curl mingw-w64-x86_64-lua
 
-export SSL_CERT_FILE=/mingw64/ssl/certs/ca-bundle.crt
+export CURL_CA_BUNDLE=/mingw64/ssl/certs/ca-bundle.crt
+
+ls /mingw64/ssl/certs/
+
 
 print_headline "Installing poppler-data"
 print_info "Downloading poppler-data"
