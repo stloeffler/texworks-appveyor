@@ -9,14 +9,14 @@ pacman --noconfirm -S mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw
 
 export CURL_CA_BUNDLE=/mingw64/ssl/certs/ca-bundle.crt
 
-ls /mingw64/ssl/certs/
+ls -lisa /mingw64/ssl/certs/
 
 
 print_headline "Installing poppler-data"
 print_info "Downloading poppler-data"
 mkdir -p /c/projects/poppler-data
 cd /c/projects/poppler-data
-curl -sSL -O "${popplerdata_URL}"
+curl -sSL -O --cacert /mingw64/ssl/certs/ca-bundle.crt "${popplerdata_URL}"
 # FIXME: Check checksum
 print_info "Extracting poppler-data"
 7z x "${popplerdata_ARCHIVE}" -so | 7z x -si -ttar
