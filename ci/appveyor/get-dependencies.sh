@@ -5,7 +5,7 @@
 
 
 print_headline "Installing dependencies"
-pacman --noconfirm -S mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw-w64-x86_64-lcms2 mingw-w64-x86_64-libpng mingw-w64-x86_64-libtiff mingw-w64-x86_64-curl mingw-w64-x86_64-lua mingw-w64-i686-ca-certificates
+pacman --noconfirm -S mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw-w64-x86_64-lcms2 mingw-w64-x86_64-libpng mingw-w64-x86_64-libtiff mingw-w64-x86_64-curl mingw-w64-x86_64-lua mingw-w64-x86_64-ca-certificates
 
 print_headline "Installing poppler-data"
 print_info "Downloading poppler-data"
