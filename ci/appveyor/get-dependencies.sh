@@ -16,7 +16,7 @@ print_headline "Installing poppler-data"
 print_info "Downloading poppler-data"
 mkdir -p /c/projects/poppler-data
 cd /c/projects/poppler-data
-curl -sSL -O --cacert /mingw64/ssl/certs/ca-bundle.crt "${popplerdata_URL}"
+curl -sSL -O --insecure "${popplerdata_URL}"
 # FIXME: Check checksum
 print_info "Extracting poppler-data"
 7z x "${popplerdata_ARCHIVE}" -so | 7z x -si -ttar
