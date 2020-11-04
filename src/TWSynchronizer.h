@@ -1,6 +1,6 @@
 /*
   This is part of TeXworks, an environment for working with TeX documents
-  Copyright (C) 2014-2018  Stefan Löffler, Jonathan Kew
+  Copyright (C) 2014-2019  Stefan Löffler, Jonathan Kew
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,10 +22,13 @@
 #ifndef TW_SYNCHRONIZER_H
 #define TW_SYNCHRONIZER_H
 
-#include <QString>
+#include "document/TeXDocument.h"
+#include "../modules/QtPDF/src/PDFBackend.h"
+
 #include <QList>
 #include <QRectF>
-
+#include <QString>
+#include <functional>
 
 namespace SyncTeX {
   #include <synctex_parser.h>
@@ -44,15 +47,23 @@ public:
     int line;
     int col;
     int len;
+
+    bool operator==(const TeXSyncPoint & o) const {
+      return (filename == o.filename && line == o.line && col == o.col && len == o.len);
+    }
   };
   struct PDFSyncPoint {
     QString filename;
     int page;
     QList<QRectF> rects;
+
+    bool operator==(const PDFSyncPoint & o) const {
+      return (filename == o.filename && page == o.page && rects == o.rects);
+    }
   };
 
-  TWSynchronizer() { }
-  virtual ~TWSynchronizer() { }
+  TWSynchronizer() = default;
+  virtual ~TWSynchronizer() = default;
   virtual PDFSyncPoint syncFromTeX(const TeXSyncPoint & src, const Resolution resolution) const = 0;
   virtual TeXSyncPoint syncFromPDF(const PDFSyncPoint & src, const Resolution resolution) const = 0;
 };
@@ -61,16 +72,19 @@ public:
 class TWSyncTeXSynchronizer : public TWSynchronizer
 {
 public:
-  TWSyncTeXSynchronizer(const QString & filename);
-  virtual ~TWSyncTeXSynchronizer();
+  using TeXLoader = std::function<const Tw::Document::TeXDocument*(const QString &)>;
+  using PDFLoader = std::function<const QSharedPointer<QtPDF::Backend::Document>(const QString &)>;
+
+  explicit TWSyncTeXSynchronizer(const QString & filename, TeXLoader texLoader, PDFLoader pdfLoader);
+  ~TWSyncTeXSynchronizer() override;
 
   bool isValid() const;
 
   QString syncTeXFilename() const;
   QString pdfFilename() const;
 
-  virtual PDFSyncPoint syncFromTeX(const TeXSyncPoint & src, const Resolution resolution) const;
-  virtual TeXSyncPoint syncFromPDF(const PDFSyncPoint & src, const Resolution resolution) const;
+  PDFSyncPoint syncFromTeX(const TeXSyncPoint & src, const Resolution resolution) const override;
+  TeXSyncPoint syncFromPDF(const PDFSyncPoint & src, const Resolution resolution) const override;
 
 protected:
   void _syncFromTeXFine(const TeXSyncPoint & src, PDFSyncPoint & dest, const Resolution resolution) const;
@@ -79,6 +93,8 @@ protected:
   static int _findCorrespondingPosition(const QString & srcContext, const QString & destContext, const int col, bool & unique);
 
   SyncTeX::synctex_scanner_p _scanner;
+  TeXLoader m_TeXLoader;
+  PDFLoader m_PDFLoader;
 };
 
 #endif // !defined(TW_SYNCHRONIZER_H)

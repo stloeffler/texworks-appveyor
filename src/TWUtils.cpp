@@ -20,214 +20,38 @@
 */
 
 #include "TWUtils.h"
-#include "TWApp.h"
-#include "TeXDocument.h"
-#include "PDFDocument.h"
-#include "TWVersion.h"
+
 #include "GitRev.h"
+#include "PDFDocumentWindow.h"
+#include "Settings.h"
+#include "TWApp.h"
+#include "TeXDocumentWindow.h"
+#include "utils/FileVersionDatabase.h"
+#include "utils/ResourcesLibrary.h"
+#include "utils/VersionInfo.h"
 
-#include <QFileDialog>
-#include <QString>
-#include <QMenu>
 #include <QAction>
-#include <QStringList>
-#include <QEvent>
-#include <QKeyEvent>
-#include <QDesktopWidget>
 #include <QCompleter>
-#include <QTextCodec>
-#include <QFile>
-#include <QDirIterator>
-#include <QSignalMapper>
-#include <QCryptographicHash>
-#include <QTextStream>
 #include <QDateTime>
-
-#include <hunspell.h>
-
-#pragma mark === TWUtils ===
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+#include <QDesktopWidget>
+#endif
+#include <QDirIterator>
+#include <QEvent>
+#include <QFile>
+#include <QFileDialog>
+#include <QKeyEvent>
+#include <QMenu>
+#include <QSignalMapper>
+#include <QString>
+#include <QStringList>
+#include <QTextCodec>
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
-// compile-time default paths - customize by defining in the .pro file
-#ifndef TW_DICPATH
-#define TW_DICPATH "/usr/share/hunspell" PATH_LIST_SEP "/usr/share/myspell/dicts"
-#endif
 #ifndef TW_HELPPATH
 #define TW_HELPPATH "/usr/local/share/texworks-help"
 #endif
 #endif
-
-bool TWUtils::isPDFfile(const QString& fileName)
-{
-	QFile theFile(fileName);
-	if (theFile.open(QIODevice::ReadOnly)) {
-		QByteArray ba = theFile.peek(8);
-		if (ba.startsWith("%PDF-1."))
-			return true;
-	}
-	return false;
-}
-
-bool TWUtils::isImageFile(const QString& fileName)
-{
-	QImage	image(fileName);
-	return !image.isNull();
-}
-
-bool TWUtils::isPostscriptFile(const QString& fileName)
-{
-	QFile theFile(fileName);
-	if (theFile.open(QIODevice::ReadOnly)) {
-		QByteArray ba = theFile.peek(4);
-		if (ba.startsWith("%!PS"))
-			return true;
-	}
-	return false;
-}
-
-const QString TWUtils::getLibraryPath(const QString& subdir, const bool updateOnDisk /* = true */)
-{
-	QString libRootPath, libPath;
-	
-	libRootPath = TWApp::instance()->getPortableLibPath();
-	if (libRootPath.isEmpty()) {
-#if defined(Q_OS_DARWIN)
-		libRootPath = QDir::homePath() + QLatin1String("/Library/" TEXWORKS_NAME "/");
-#elif defined(Q_OS_UNIX) // && !defined(Q_OS_DARWIN)
-		if (subdir == QLatin1String("dictionaries")) {
-			libPath = QString::fromLatin1(TW_DICPATH);
-			QString dicPath = QString::fromLocal8Bit(getenv("TW_DICPATH"));
-			if (!dicPath.isEmpty())
-				libPath = dicPath;
-			return libPath; // don't try to create/update the system dicts directory
-		}
-		libRootPath = QDir::homePath() + QLatin1String("/." TEXWORKS_NAME "/");
-#else // defined(Q_OS_WIN)
-		libRootPath = QDir::homePath() + QLatin1String("/" TEXWORKS_NAME "/");
-#endif
-	}
-	libPath = QDir(libRootPath).absolutePath() + QDir::separator() + subdir;
-
-	if(updateOnDisk)
-		updateLibraryResources(QDir(QString::fromLatin1(":/resfiles")), libRootPath, subdir);
-	return libPath;
-}
-
-/*static*/
-void TWUtils::updateLibraryResources(const QDir& srcRootDir, const QDir& destRootDir, const QString& subdir)
-{
-	QDir srcDir(srcRootDir);
-	QDir destDir(destRootDir.absolutePath() + QDir::separator() + subdir);
-	
-	// sanity check
-	if (!srcDir.cd(subdir))
-		return;
-	
-	// make sure the library folder exists - even if the user deleted it;
-	// otherwise other parts of the program might fail
-	if (!destDir.exists())
-		QDir::root().mkpath(destDir.absolutePath());
-	
-	if (subdir == QString::fromLatin1("translations")) // don't copy the built-in translations
-		return;
-	
-	FileVersionDatabase fvdb = FileVersionDatabase::load(destRootDir.absoluteFilePath(QString::fromLatin1("TwFileVersions.db")));
-	
-	QDirIterator iter(srcDir, QDirIterator::Subdirectories);
-	while (iter.hasNext()) {
-		(void)iter.next();
-		// Skip directories (they get created on-the-fly if required for copying files)
-		if (iter.fileInfo().isDir())
-			continue;
-
-		QString srcPath = iter.fileInfo().filePath();
-		QString path = srcRootDir.relativeFilePath(srcPath);
-		QString destPath = destRootDir.filePath(path);
-
-		// Check if the file is in the database
-		if (fvdb.hasFileRecord(destPath)) {
-			FileVersionDatabase::Record rec = fvdb.getFileRecord(destPath);
-			// If the file no longer exists on the disk, the user has deleted it
-			// Hence we won't recreate it, but we keep the database record to
-			// remember that this file was deleted by the user
-			if (!QFileInfo(destPath).exists())
-				continue;
-			
-			QByteArray srcHash = FileVersionDatabase::hashForFile(srcPath);
-			QByteArray destHash = FileVersionDatabase::hashForFile(destPath);
-			// If the file was modified, don't do anything, either
-			if (destHash != rec.hash) {
-				// The only exception is if the file on the disk matches the
-				// new file we would have installed. In this case, we reassume
-				// ownership of it. (This is the case if the user deleted the
-				// file, but later wants to resurrect it by downloading the
-				// latest version from the internet)
-				if (destHash != srcHash)
-					continue;
-				fvdb.addFileRecord(destPath, srcHash, gitCommitHash());
-			}
-			else {
-				// The file matches the record in the database; update it
-				// (copying is only necessary if the contents has changed)
-				if (srcHash == destHash)
-					fvdb.addFileRecord(destPath, srcHash, gitCommitHash());
-				else {
-					// we have to remove the file first as QFile::copy doesn't
-					// overwrite existing files
-					QFile::remove(destPath);
-					if(QFile::copy(srcPath, destPath))
-						fvdb.addFileRecord(destPath, srcHash, gitCommitHash());
-				}
-			}
-		}
-		else {
-			QByteArray srcHash = FileVersionDatabase::hashForFile(srcPath);
-			// If the file is not in the database, we add it - unless a file
-			// with the name already exists
-			if (!QFileInfo(destPath).exists()) {
-				// We have to make sure the directory exists - otherwise copying
-				// might fail
-				destRootDir.mkpath(QFileInfo(destPath).path());
-				QFile(srcPath).copy(destPath);
-				fvdb.addFileRecord(destPath, srcHash, gitCommitHash());
-			}
-			else {
-				// If a file with that name already exists, we don't replace it
-				// If it happens to be identical with the version we would install
-				// we do take ownership, however, and register it in the
-				// database so that future updates are applied
-				QByteArray destHash = FileVersionDatabase::hashForFile(destPath);
-				if (srcHash == destHash)
-					fvdb.addFileRecord(destPath, destHash, gitCommitHash());
-			}
-		}
-	}
-
-	// Now, remove all files that are unmodified on disk and were
-	// removed upstream
-	QMutableListIterator<FileVersionDatabase::Record> recIt(fvdb.getFileRecords());
-	while (recIt.hasNext()) {
-		const FileVersionDatabase::Record & rec = recIt.next();
-
-		QString destPath = rec.filePath.filePath();
-		QString path = destRootDir.relativeFilePath(destPath);
-		QString srcPath = srcRootDir.filePath(path);
-		
-		// If the source file still exists there is nothing to do here
-		if (QFileInfo(srcPath).exists())
-			continue;
-		
-		// If the source file no longer exists but the file on disk is up to
-		// date, remove it
-		if (rec.filePath.exists() && FileVersionDatabase::hashForFile(destPath) == rec.hash) {
-			QFile(destPath).remove();
-			recIt.remove();
-		}
-	}
-
-	// Finally, save the updated database
-	fvdb.save(destRootDir.absoluteFilePath(QString::fromLatin1("TwFileVersions.db")));
-}
 
 static int
 insertItemIfPresent(QFileInfo& fi, QMenu* helpMenu, QAction* before, QSignalMapper* mapper, QString title)
@@ -239,7 +63,9 @@ insertItemIfPresent(QFileInfo& fi, QMenu* helpMenu, QAction* before, QSignalMapp
 			QFile titleFile(titlefileInfo.absoluteFilePath());
 			titleFile.open(QIODevice::ReadOnly | QIODevice::Text);
 			QTextStream titleStream(&titleFile);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 			titleStream.setCodec("UTF-8");
+#endif
 			title = titleStream.readLine();
 		}
 		QAction* action = new QAction(title, helpMenu);
@@ -257,7 +83,7 @@ void TWUtils::insertHelpMenuItems(QMenu* helpMenu)
 	QObject::connect(mapper, SIGNAL(mapped(const QString&)), TWApp::instance(), SLOT(openHelpFile(const QString&)));
 
 	QAction* before = nullptr;
-	int i, firstSeparator = 0;
+	int i{0}, firstSeparator = 0;
 	QList<QAction*> actions = helpMenu->actions();
 	for (i = 0; i < actions.count(); ++i) {
 		if (actions[i]->isSeparator() && !firstSeparator)
@@ -285,11 +111,11 @@ void TWUtils::insertHelpMenuItems(QMenu* helpMenu)
 	if (!helpPath.isEmpty())
 		helpDir.cd(QString(helpPath));
 
-	QSETTINGS_OBJECT(settings);
+	Tw::Settings settings;
 	QString loc = settings.value(QString::fromLatin1("locale")).toString();
 	if (loc.isEmpty())
 		loc = QLocale::system().name();
-	
+
 	QDirIterator iter(helpDir);
 	int inserted = 0;
 	while (iter.hasNext()) {
@@ -336,137 +162,32 @@ QList<QTextCodec*> *TWUtils::findCodecs()
 
 	codecList = new QList<QTextCodec*>;
 	QMap<QString, QTextCodec*> codecMap;
-	QRegExp iso8859RegExp(QString::fromLatin1("ISO[- ]8859-([0-9]+).*"));
-	foreach (int mib, QTextCodec::availableMibs()) {
-		QTextCodec *codec = QTextCodec::codecForMib(mib);
+	QRegularExpression iso8859RegExp(QStringLiteral("^ISO[- ]8859-([0-9]+)"));
+
+	foreach (QByteArray name, QTextCodec::availableCodecs()) {
+		QTextCodec * codec = QTextCodec::codecForName(name);
 		QString sortKey = QString::fromUtf8(codec->name().constData()).toUpper();
-		int rank;
+		QRegularExpressionMatch iso8859Match = iso8859RegExp.match(sortKey);
+		int rank{5};
 		if (sortKey.startsWith(QLatin1String("UTF-8")))
 			rank = 1;
 		else if (sortKey.startsWith(QLatin1String("UTF-16")))
 			rank = 2;
-		else if (iso8859RegExp.exactMatch(sortKey)) {
-			if (iso8859RegExp.cap(1).size() == 1)
+		else if (iso8859Match.hasMatch()) {
+			if (iso8859Match.captured(1).size() == 1)
 				rank = 3;
 			else
 				rank = 4;
 		}
-		else
-			rank = 5;
 		sortKey.prepend(QChar('0' + rank));
-		codecMap.insert(sortKey, codec);
+		// Add the codec if it is not already in the list
+		// (NB: QTextCodec::availableCodecs() lists all aliases separately)
+		if (!codecMap.contains(sortKey)) {
+			codecMap.insert(sortKey, codec);
+		}
 	}
 	*codecList = codecMap.values();
 	return codecList;
-}
-
-QStringList* TWUtils::translationList = nullptr;
-
-QStringList* TWUtils::getTranslationList()
-{
-	if (translationList)
-		return translationList;
-
-	translationList = new QStringList;
-	
-	QDir transDir(QString::fromLatin1(":/resfiles/translations"));
-	foreach (QFileInfo qmFileInfo, transDir.entryInfoList(QStringList(QString::fromLatin1(TEXWORKS_NAME "_*.qm")),
-														  QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase)) {
-		QString locName = qmFileInfo.completeBaseName();
-		locName.remove(QString::fromLatin1(TEXWORKS_NAME "_"));
-		*translationList << locName;
-	}
-	
-	transDir = QDir(TWUtils::getLibraryPath(QString::fromLatin1("translations")));
-	foreach (QFileInfo qmFileInfo, transDir.entryInfoList(QStringList(QString::fromLatin1(TEXWORKS_NAME "_*.qm")),
-				QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase)) {
-		QString locName = qmFileInfo.completeBaseName();
-		locName.remove(QString::fromLatin1(TEXWORKS_NAME "_"));
-		if (!translationList->contains(locName, Qt::CaseInsensitive))
-			*translationList << locName;
-	}
-	
-	// English is always available, and it has to be the first item
-	translationList->removeAll(QString::fromLatin1("en"));
-	translationList->prepend(QString::fromLatin1("en"));
-	
-	return translationList;
-}
-
-QHash<QString, QString>* TWUtils::dictionaryList = nullptr;
-
-QHash<QString, QString>* TWUtils::getDictionaryList(const bool forceReload /* = false */)
-{
-	if (dictionaryList) {
-		if (!forceReload)
-			return dictionaryList;
-		delete dictionaryList;
-	}
-
-	dictionaryList = new QHash<QString, QString>();
-	foreach (QDir dicDir, TWUtils::getLibraryPath(QString::fromLatin1("dictionaries")).split(QLatin1String(PATH_LIST_SEP))) {
-		foreach (QFileInfo dicFileInfo, dicDir.entryInfoList(QStringList(QString::fromLatin1("*.dic")),
-					QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase)) {
-			QFileInfo affFileInfo(dicFileInfo.dir(), dicFileInfo.completeBaseName() + QLatin1String(".aff"));
-			if (affFileInfo.isReadable())
-				dictionaryList->insertMulti(dicFileInfo.canonicalFilePath(), dicFileInfo.completeBaseName());
-		}
-	}
-	
-	TWApp::instance()->notifyDictionaryListChanged();
-	return dictionaryList;
-}
-
-QHash<const QString,Hunhandle*> *TWUtils::dictionaries = nullptr;
-
-Hunhandle* TWUtils::getDictionary(const QString& language)
-{
-	if (language.isEmpty())
-		return nullptr;
-	
-	if (!dictionaries)
-		dictionaries = new QHash<const QString,Hunhandle*>;
-	
-	if (dictionaries->contains(language))
-		return dictionaries->value(language);
-	
-	Hunhandle *h = nullptr;
-	foreach (QDir dicDir, TWUtils::getLibraryPath(QString::fromLatin1("dictionaries")).split(QLatin1String(PATH_LIST_SEP))) {
-		QFileInfo affFile(dicDir, language + QLatin1String(".aff"));
-		QFileInfo dicFile(dicDir, language + QLatin1String(".dic"));
-		if (affFile.isReadable() && dicFile.isReadable()) {
-			h = Hunspell_create(affFile.canonicalFilePath().toLocal8Bit().data(),
-			                    dicFile.canonicalFilePath().toLocal8Bit().data());
-			(*dictionaries)[language] = h;
-			return h;
-		}
-	}
-	return nullptr;
-}
-
-QString TWUtils::getLanguageForDictionary(const Hunhandle * pHunspell)
-{
-	if (!pHunspell || !dictionaries)
-		return QString();
-	
-	for (QHash<const QString,Hunhandle*>::const_iterator it = dictionaries->cbegin(); it != dictionaries->cend(); ++it) {
-		if (it.value() == pHunspell)
-			return it.key();
-	}
-	return QString();
-}
-
-void TWUtils::clearDictionaries()
-{
-	if (!dictionaries)
-		return;
-	
-	for (QHash<const QString,Hunhandle*>::iterator it = dictionaries->begin(); it != dictionaries->end(); ++it) {
-		if (it.value())
-			Hunspell_destroy(it.value());
-	}
-	delete dictionaries;
-	dictionaries = nullptr;
 }
 
 QStringList* TWUtils::filters;
@@ -548,7 +269,7 @@ QStringList TWUtils::constructUniqueFileLabels(const QStringList & fileList)
 
 void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions, QMenu *menu, QAction * clearAction) /* static */
 {
-	QSETTINGS_OBJECT(settings);
+	Tw::Settings settings;
 	QStringList fileList, labelList;
 	if (settings.contains(QString::fromLatin1("recentFiles"))) {
 		QList<QVariant> files = settings.value(QString::fromLatin1("recentFiles")).toList();
@@ -577,7 +298,7 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 	labelList = constructUniqueFileLabels(fileList);
 
 	int numRecentFiles = fileList.size();
-	
+
 	foreach(QAction * sep, menu->actions()) {
 		if (sep->isSeparator())
 			delete sep;
@@ -604,7 +325,7 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 		actions[i]->setData(fileList[i]);
 		actions[i]->setVisible(true);
 	}
-	
+
 	if (numRecentFiles > 0)
 		menu->insertSeparator(clearAction);
 	if (clearAction)
@@ -622,10 +343,10 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 	}
 	while (!menu->actions().isEmpty() && menu->actions().last()->isSeparator())
 		menu->removeAction(menu->actions().last());
-	
-	QList<TeXDocument *> texDocList;
+
+	QList<TeXDocumentWindow *> texDocList;
 	QStringList fileList, labelList;
-	Q_FOREACH(TeXDocument * texDoc, TeXDocument::documentList()) {
+	Q_FOREACH(TeXDocumentWindow * texDoc, TeXDocumentWindow::documentList()) {
 		texDocList.append(texDoc);
 		fileList.append(texDoc->fileName());
 	}
@@ -634,7 +355,7 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 	// append an item for each TeXDocument
 	bool first = true;
 	for (int i = 0; i < texDocList.size(); ++i) {
-		TeXDocument * texDoc = texDocList[i];
+		TeXDocumentWindow * texDoc = texDocList[i];
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
@@ -644,7 +365,7 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 			f.setItalic(true);
 			selWin->setFont(f);
 		}
-		if (texDoc == qobject_cast<TeXDocument*>(window)) {
+		if (texDoc == qobject_cast<TeXDocumentWindow*>(window)) {
 			selWin->setCheckable(true);
 			selWin->setChecked(true);
 		}
@@ -652,10 +373,10 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 		menu->addAction(selWin);
 	}
 
-	QList<PDFDocument *> pdfDocList;
+	QList<PDFDocumentWindow *> pdfDocList;
 	fileList.clear();
 	labelList.clear();
-	Q_FOREACH(PDFDocument * pdfDoc, PDFDocument::documentList()) {
+	Q_FOREACH(PDFDocumentWindow * pdfDoc, PDFDocumentWindow::documentList()) {
 		pdfDocList.append(pdfDoc);
 		fileList.append(pdfDoc->fileName());
 	}
@@ -664,12 +385,12 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 	// append an item for each PDFDocument
 	first = true;
 	for (int i = 0; i < pdfDocList.size(); ++i) {
-		PDFDocument * pdfDoc = pdfDocList[i];
+		PDFDocumentWindow * pdfDoc = pdfDocList[i];
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
 		SelWinAction *selWin = new SelWinAction(menu, fileList[i], labelList[i]);
-		if (pdfDoc == qobject_cast<PDFDocument*>(window)) {
+		if (pdfDoc == qobject_cast<PDFDocumentWindow*>(window)) {
 			selWin->setCheckable(true);
 			selWin->setChecked(true);
 		}
@@ -680,8 +401,12 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 
 void TWUtils::ensureOnScreen(QWidget *window)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 	QDesktopWidget *desktop = QApplication::desktop();
 	QRect screenRect = desktop->availableGeometry(window);
+#else
+	QRect screenRect = window->screen()->availableGeometry();
+#endif
 	QRect adjustedFrame = window->frameGeometry();
 	if (adjustedFrame.width() > screenRect.width())
 		adjustedFrame.setWidth(screenRect.width());
@@ -705,16 +430,24 @@ void TWUtils::ensureOnScreen(QWidget *window)
 
 void TWUtils::zoomToScreen(QWidget *window)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 	QDesktopWidget *desktop = QApplication::desktop();
 	QRect screenRect = desktop->availableGeometry(window);
+#else
+	QRect screenRect = window->screen()->availableGeometry();
+#endif
 	screenRect.setTop(screenRect.top() + window->geometry().y() - window->y());
 	window->setGeometry(screenRect);
 }
 
 void TWUtils::zoomToHalfScreen(QWidget *window, bool rhs)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 	QDesktopWidget *desktop = QApplication::desktop();
 	QRect r = desktop->availableGeometry(window);
+#else
+	QRect r = window->screen()->availableGeometry();
+#endif
 	int wDiff = window->frameGeometry().width() - window->width();
 	int hDiff = window->frameGeometry().height() - window->height();
 
@@ -737,7 +470,7 @@ void TWUtils::zoomToHalfScreen(QWidget *window, bool rhs)
 			// hacking the config files.
 			// (Note: this should only be necessary in some special cases, e.g.
 			// on X11 systems with special effects enabled)
-			QSETTINGS_OBJECT(settings);
+			Tw::Settings settings;
 			wDiff = qMax(0, settings.value(QString::fromLatin1("windowWDiff"), 0).toInt());
 			hDiff = qMax(0, settings.value(QString::fromLatin1("windowHDiff"), 0).toInt());
 		}
@@ -751,7 +484,7 @@ void TWUtils::zoomToHalfScreen(QWidget *window, bool rhs)
 #endif
 		}
 	}
-	
+
 	// Ensure the window is not maximized, otherwise some window managers might
 	// react strangely to resizing
 	window->showNormal();
@@ -769,11 +502,14 @@ void TWUtils::zoomToHalfScreen(QWidget *window, bool rhs)
 
 void TWUtils::sideBySide(QWidget *window1, QWidget *window2)
 {
-	QDesktopWidget *desktop = QApplication::desktop();
-
-	// if the windows reside on the same screen zoom each so that it occupies 
+	// if the windows reside on the same screen zoom each so that it occupies
 	// half of that screen
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	QDesktopWidget *desktop = QApplication::desktop();
 	if (desktop->screenNumber(window1) == desktop->screenNumber(window2)) {
+#else
+	if (window1->screen() == window2->screen()) {
+#endif
 		zoomToHalfScreen(window1, false);
 		zoomToHalfScreen(window2, true);
 	}
@@ -814,7 +550,7 @@ void TWUtils::tileWindowsInRect(const QWidgetList& windows, const QRect& bounds)
 			r.moveTop(bounds.top() + (bounds.height() * y) / rows);
 		}
 		else
-			r.moveLeft(bounds.left() + (bounds.width() * x) / cols); 
+			r.moveLeft(bounds.left() + (bounds.width() * x) / cols);
 	}
 }
 
@@ -861,138 +597,6 @@ void TWUtils::applyToolbarOptions(QMainWindow *theWindow, int iconSize, bool sho
 			theToolBar->setIconSize(QSize(iconSize, iconSize));
 		}
 	}
-}
-
-bool TWUtils::findNextWord(const QString& text, int index, int& start, int& end)
-{
-	// try to do a sensible "word" selection for TeX documents, taking account of the form of control sequences:
-	// given an index representing a caret,
-	// if current char (following caret) is letter, apostrophe, or '@', extend in both directions
-	//    include apostrophe if surrounded by letters
-	//    include preceding backslash if any, unless word contains apostrophe
-	// if preceding char is backslash, extend to include backslash only
-	// if current char is number, extend in both directions
-	// if current char is space or tab, extend in both directions to include all spaces or tabs
-	// if current char is backslash, include next char; if letter or '@', extend to include all following letters or '@'
-	// else select single char following index
-	// returns TRUE if the resulting selection consists of word-forming chars
-
-	start = end = index;
-
-	if (text.length() < 1) // empty
-		return false;
-
-	if (index >= text.length()) // end of line
-		return false;
-	QChar	ch = text.at(index);
-
-#define IS_WORD_FORMING(ch) ((ch).isLetter() || (ch).isMark())
-
-	if (IS_WORD_FORMING(ch) || ch == QChar::fromLatin1('@') /* || ch == QChar::fromLatin1('\'') || ch == 0x2019 */) {
-		bool isControlSeq = false; // becomes true if we include an @ sign or a leading backslash
-		bool includesApos = false; // becomes true if we include an apostrophe
-		if (ch == QChar::fromLatin1('@'))
-			isControlSeq = true;
-		//else if (ch == QChar::fromLatin1('\'') || ch == 0x2019)
-		//	includesApos = true;
-		while (start > 0) {
-			--start;
-			ch = text.at(start);
-			if (IS_WORD_FORMING(ch))
-				continue;
-			if (!includesApos && ch == QChar::fromLatin1('@')) {
-				isControlSeq = true;
-				continue;
-			}
-			if (!isControlSeq && (ch == QChar::fromLatin1('\'') || ch == QChar(0x2019)) && start > 0 && IS_WORD_FORMING(text.at(start - 1))) {
-				includesApos = true;
-				continue;
-			}
-			++start;
-			break;
-		}
-		if (start > 0 && text.at(start - 1) == QChar::fromLatin1('\\')) {
-			isControlSeq = true;
-			--start;
-		}
-		while (++end < text.length()) {
-			ch = text.at(end);
-			if (IS_WORD_FORMING(ch))
-				continue;
-			if (!includesApos && ch == QChar::fromLatin1('@')) {
-				isControlSeq = true;
-				continue;
-			}
-			if (!isControlSeq && (ch == QChar::fromLatin1('\'') || ch == QChar(0x2019)) && end < text.length() - 1 && IS_WORD_FORMING(text.at(end + 1))) {
-				includesApos = true;
-				continue;
-			}
-			break;
-		}
-		return !isControlSeq;
-	}
-	
-	if (index > 0 && text.at(index - 1) == QChar::fromLatin1('\\')) {
-		start = index - 1;
-		end = index + 1;
-		return false;
-	}
-	
-	if (ch.isNumber()) {
-		// TODO: handle decimals, leading signs
-		while (start > 0) {
-			--start;
-			ch = text.at(start);
-			if (ch.isNumber())
-				continue;
-			++start;
-			break;
-		}
-		while (++end < text.length()) {
-			ch = text.at(end);
-			if (ch.isNumber())
-				continue;
-			break;
-		}
-		return false;
-	}
-	
-	if (ch == QChar::fromLatin1(' ') || ch == QChar::fromLatin1('\t')) {
-		while (start > 0) {
-			--start;
-			ch = text.at(start);
-			if (!(ch == QChar::fromLatin1(' ') || ch == QChar::fromLatin1('\t'))) {
-				++start;
-				break;
-			}
-		}
-		while (++end < text.length()) {
-			ch = text.at(end);
-			if (!(ch == QChar::fromLatin1(' ') || ch == QChar::fromLatin1('\t')))
-				break;
-		}
-		return false;
-	}
-	
-	if (ch == QChar::fromLatin1('\\')) {
-		if (++end < text.length()) {
-			ch = text.at(end);
-			if (IS_WORD_FORMING(ch) || ch == QChar::fromLatin1('@'))
-				while (++end < text.length()) {
-					ch = text.at(end);
-					if (IS_WORD_FORMING(ch) || ch == QChar::fromLatin1('@'))
-						continue;
-					break;
-				}
-			else
-				++end;
-		}
-		return false;
-	}
-
-	// else the character is selected in isolation
-	end = index + 1;
-	return false;
 }
 
 QMap<QChar,QChar> TWUtils::pairOpeners;
@@ -1044,8 +648,8 @@ void TWUtils::readConfig()
 	pairOpeners.clear();
 	pairClosers.clear();
 
-	QDir configDir(TWUtils::getLibraryPath(QString::fromLatin1("configuration")));
-	QRegExp pair(QString::fromLatin1("([^\\s])\\s+([^\\s])\\s*(?:#.*)?"));
+	QDir configDir(Tw::Utils::ResourcesLibrary::getLibraryPath(QStringLiteral("configuration")));
+	QRegularExpression pair(QString::fromLatin1("^([^\\s])\\s+([^\\s])\\s*(?:#.*)?$"));
 
 	QFile pairsFile(configDir.filePath(QString::fromLatin1("delimiter-pairs.txt")));
 	if (pairsFile.open(QIODevice::ReadOnly)) {
@@ -1057,9 +661,10 @@ void TWUtils::readConfig()
 				continue;
 			ba.chop(1);
 			QString line = QString::fromUtf8(ba.data(), ba.size());
-			if (pair.exactMatch(line)) {
-				pairClosers[pair.cap(1).at(0)] = pair.cap(2).at(0);
-				pairOpeners[pair.cap(2).at(0)] = pair.cap(1).at(0);
+			QRegularExpressionMatch pairMatch = pair.match(line);
+			if (pairMatch.hasMatch()) {
+				pairClosers[pairMatch.captured(1).at(0)] = pairMatch.captured(2).at(0);
+				pairOpeners[pairMatch.captured(2).at(0)] = pairMatch.captured(1).at(0);
 			}
 		}
 	}
@@ -1073,10 +678,10 @@ void TWUtils::readConfig()
 	sCleanupPatterns = QString::fromLatin1("*.aux $jobname.log $jobname.lof $jobname.lot $jobname.toc");
 
 	filters = new QStringList;
-	
+
 	QFile configFile(configDir.filePath(QString::fromLatin1("texworks-config.txt")));
 	if (configFile.open(QIODevice::ReadOnly)) {
-		QRegExp keyVal(QString::fromLatin1("([-a-z]+):\\s*([^ \\t].+)"));
+		QRegularExpression keyVal(QStringLiteral("^([-a-z]+):\\s*([^ \\t].+)$"));
 			// looking for keyword, colon, optional whitespace, value
 		while (true) {
 			QByteArray ba = configFile.readLine();
@@ -1085,10 +690,11 @@ void TWUtils::readConfig()
 			if (ba[0] == '#' || ba[0] == '\n')
 				continue;
 			QString	line = QString::fromUtf8(ba.data(), ba.size());
-			if (keyVal.exactMatch(line)) {
+			QRegularExpressionMatch keyValMatch = keyVal.match(line);
+			if (keyValMatch.hasMatch()) {
 				// if that matched, keyVal.cap(1) is the keyword, cap(2) is the value
-				const QString& keyword = keyVal.cap(1);
-				QString value = keyVal.cap(2).trimmed();
+				const QString& keyword = keyValMatch.captured(1);
+				QString value = keyValMatch.captured(2).trimmed();
 				if (keyword == QString::fromLatin1("include-text")) {
 					sIncludeTextCommand = value.replace(QString::fromLatin1("#RET#"), QChar::fromLatin1('\n'));
 					continue;
@@ -1123,7 +729,7 @@ void TWUtils::readConfig()
 			}
 		}
 	}
-	
+
 	if (filters->count() == 0)
 		setDefaultFilters();
 }
@@ -1160,12 +766,12 @@ int TWUtils::findOpeningDelim(const QString& text, int pos)
 void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true */, QSettings * map /* = nullptr */)
 {
 	bool deleteMap = false;
-	
+
 	if (!widget)
 		return;
 
 	if (!map) {
-		QString filename = QDir(TWUtils::getLibraryPath(QString::fromLatin1("configuration"))).absoluteFilePath(QString::fromLatin1("shortcuts.ini"));
+		QString filename = QDir(Tw::Utils::ResourcesLibrary::getLibraryPath(QStringLiteral("configuration"))).absoluteFilePath(QString::fromLatin1("shortcuts.ini"));
 		if (filename.isEmpty() || !QFileInfo(filename).exists())
 			return;
 
@@ -1183,7 +789,7 @@ void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true 
 		if (map->contains(act->objectName()))
 			act->setShortcut(QKeySequence(map->value(act->objectName()).toString()));
 	}
-	
+
 	if (recursive) {
 		foreach (QObject * obj, widget->children()) {
 			QWidget * child = qobject_cast<QWidget*>(obj);
@@ -1191,34 +797,10 @@ void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true 
 				installCustomShortcuts(child, true, map);
 		}
 	}
-	
+
 	if (deleteMap)
 		delete map;
 }
-
-// static
-bool TWUtils::isGitInfoAvailable()
-{
-	return (!QString::fromLatin1(GIT_COMMIT_HASH).startsWith(QString::fromLatin1("$Format:")) && !QString::fromLatin1(GIT_COMMIT_DATE).startsWith(QString::fromLatin1("$Format:")));
-}
-
-// static
-QString TWUtils::gitCommitHash()
-{
-	if(QString::fromLatin1(GIT_COMMIT_HASH).startsWith(QString::fromLatin1("$Format:")))
-		return QString();
-	return QString::fromLatin1(GIT_COMMIT_HASH);
-}
-
-// static
-QDateTime TWUtils::gitCommitDate()
-{
-	if (QString::fromLatin1(GIT_COMMIT_DATE).startsWith(QString::fromLatin1("$Format:")))
-		return QDateTime();
-	return QDateTime::fromString(QString::fromLatin1(GIT_COMMIT_DATE), Qt::ISODate).toUTC();
-}
-
-#pragma mark === SelWinAction ===
 
 // action subclass used for dynamic window-selection items in the Window menu
 
@@ -1228,8 +810,6 @@ SelWinAction::SelWinAction(QObject *parent, const QString &fileName, const QStri
 	setText(label);
 	setData(fileName);
 }
-
-#pragma mark === CmdKeyFilter ===
 
 // on OS X only, the singleton CmdKeyFilter object is attached to all TeXDocument editor widgets
 // to stop Command-keys getting inserted into edit text items
@@ -1262,114 +842,3 @@ bool CmdKeyFilter::eventFilter(QObject *obj, QEvent *event)
 	return QObject::eventFilter(obj, event);
 }
 
-/*static*/
-FileVersionDatabase FileVersionDatabase::load(const QString & path)
-{
-	QFile fin(path);
-	FileVersionDatabase retVal;
-	QDir rootDir(QFileInfo(path).absoluteDir());
-	
-	if (!fin.open(QIODevice::ReadOnly | QIODevice::Text))
-		return retVal;
-
-	QTextStream strm(&fin);
-	
-	while (!strm.atEnd()) {
-		FileVersionDatabase::Record rec;
-		QString line = strm.readLine().trimmed();
-		
-		// ignore comments
-		if (line.startsWith(QChar::fromLatin1('#'))) continue;
-		
-		rec.version = line.section(QChar::fromLatin1(' '), 0, 0);
-		rec.hash = QByteArray::fromHex(line.section(QChar::fromLatin1(' '), 1, 1).toLatin1());
-		rec.filePath = line.section(QChar::fromLatin1(' '), 2).trimmed();
-		rec.filePath = rootDir.absoluteFilePath(rec.filePath.filePath());
-		retVal.m_records.append(rec);
-	}
-	
-	fin.close();
-	
-	return retVal;
-}
-
-bool FileVersionDatabase::save(const QString & path) const
-{
-	QFile fout(path);
-	QDir rootDir(QFileInfo(path).absoluteDir());
-	
-	if (!fout.open(QIODevice::WriteOnly | QIODevice::Text))
-		return false;
-	
-	QTextStream strm(&fout);
-
-	foreach (FileVersionDatabase::Record rec, m_records) {
-		QString filePath = rec.filePath.absoluteFilePath();
-		strm << rec.version << " " << rec.hash.toHex() << " " << rootDir.relativeFilePath(filePath) << endl;
-	}
-	
-	fout.close();
-	return true;
-}
-
-void FileVersionDatabase::addFileRecord(const QFileInfo & file, const QByteArray & md5Hash, const QString & version)
-{
-	// remove all existing entries for this file
-	QMutableListIterator<FileVersionDatabase::Record> it(m_records);
-	
-	while (it.hasNext()) {
-		const FileVersionDatabase::Record rec = it.next();
-		if (file.absoluteFilePath() == rec.filePath.absoluteFilePath()) {
-			it.remove();
-		}
-	}
-	
-	// add the new data
-	FileVersionDatabase::Record rec;
-	rec.filePath = file;
-	rec.version = version;
-	rec.hash = md5Hash;
-	m_records.append(rec);
-}
-
-bool FileVersionDatabase::hasFileRecord(const QFileInfo & file) const
-{
-	QListIterator<FileVersionDatabase::Record> it(m_records);
-	
-	while (it.hasNext()) {
-		const FileVersionDatabase::Record rec = it.next();
-		if (file.filePath() == rec.filePath.filePath())
-			return true;
-	}
-	return false;
-}
-
-FileVersionDatabase::Record FileVersionDatabase::getFileRecord(const QFileInfo & file) const
-{
-	QListIterator<FileVersionDatabase::Record> it(m_records);
-	
-	while (it.hasNext()) {
-		const FileVersionDatabase::Record rec = it.next();
-		if (file == rec.filePath)
-			return rec;
-	}
-
-	FileVersionDatabase::Record retVal;
-	retVal.version = QString();
-	retVal.hash = QByteArray::fromHex("d41d8cd98f00b204e9800998ecf8427e"); // hash for the zero-length string
-	return retVal;
-}
-
-/*static*/
-QByteArray FileVersionDatabase::hashForFile(const QString & path)
-{
-	QByteArray retVal = QByteArray::fromHex("d41d8cd98f00b204e9800998ecf8427e"); // hash for the zero-length string;
-	QFile fin(path);
-	
-	if (!fin.open(QIODevice::ReadOnly))
-		return retVal;
-	
-	retVal = QCryptographicHash::hash(fin.readAll(), QCryptographicHash::Md5);
-	fin.close();
-	return retVal;
-}

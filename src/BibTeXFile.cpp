@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2017-2018  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2017-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -81,18 +81,12 @@ void BibTeXFile::Entry::updateCache()
 	_cache.valid = true;
 }
 
-BibTeXFile::BibTeXFile()
-{
-
-}
-
 bool BibTeXFile::load(const QString & filename)
 {
 	QFile file(filename);
 	QByteArray content;
 	QTextCodec * codec = QTextCodec::codecForName("utf-8");
 	int curPos = 0;
-	int start;
 
 	_entries.clear();
 
@@ -126,7 +120,7 @@ template <class S, class C> int findBlock(const S & content, int from, const C &
 		return -1;
 
 	int open = 1;
-	int i;
+	int i{from + 1};
 	bool escaped = false;
 	for (i = from + 1; i < content.size() && open > 0; ++i) {
 		if (escaped) escaped = false;
@@ -193,7 +187,6 @@ void BibTeXFile::parseEntry(Entry & e, const QString & block)
 	e._key = block.mid(0, pos).trimmed();
 	if (pos == -1) return;
 
-	int i;
 	QChar startDelim, endDelim;
 
 	do {
@@ -202,6 +195,7 @@ void BibTeXFile::parseEntry(Entry & e, const QString & block)
 		if (pos < 0) break;
 		QString key = block.mid(start, pos - start).trimmed();
 		QString val;
+		int i{pos + 1};
 
 		start = -1;
 
@@ -227,11 +221,11 @@ void BibTeXFile::parseEntry(Entry & e, const QString & block)
 
 			int end = findBlock(block, i, startDelim, endDelim);
 			if (end < 0) {
-				val += block.midRef(i);
+				val += block.mid(i);
 				i = block.size();
 			}
 			else {
-				val += block.midRef(i, end - i + 1);
+				val += block.mid(i, end - i + 1);
 				i = end;
 			}
 		}
@@ -244,7 +238,7 @@ unsigned int BibTeXFile::numEntries() const
 {
 	// Only count "normal" entries
 	unsigned int retVal = 0;
-	for (unsigned int i = 0; i < _entries.size(); ++i) {
+	for (int i = 0; i < _entries.size(); ++i) {
 		if (_entries[i].type() == Entry::NORMAL) ++retVal;
 	}
 	return retVal;
@@ -253,7 +247,7 @@ unsigned int BibTeXFile::numEntries() const
 const BibTeXFile::Entry & BibTeXFile::entry(const unsigned int idx) const
 {
 	unsigned int j = 0;
-	for (unsigned int i = 0; i < _entries.size(); ++i) {
+	for (int i = 0; i < _entries.size(); ++i) {
 		if (_entries[i].type() != Entry::NORMAL) continue;
 		if (j == idx) return _entries[i];
 		++j;

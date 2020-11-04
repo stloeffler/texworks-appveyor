@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2011-2018  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2011-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,8 +20,11 @@
 */
 
 #include "ResourcesDialog.h"
-#include "ConfigurableApp.h"
+
+#include "Settings.h"
 #include "TWUtils.h"
+
+#include "utils/ResourcesLibrary.h"
 
 ResourcesDialog::ResourcesDialog(QWidget *parent)
 : QDialog(parent)
@@ -31,12 +34,12 @@ ResourcesDialog::ResourcesDialog(QWidget *parent)
 
 void ResourcesDialog::init()
 {
-	QSETTINGS_OBJECT(s);
+	Tw::Settings s;
 
 	setupUi(this);
-	
+
 #if defined(Q_OS_WIN)
-	if(ConfigurableApp::instance()->getSettingsFormat() == QSettings::NativeFormat)
+	if(Tw::Settings::defaultFormat() == QSettings::NativeFormat)
 		locationOfSettings->setText(tr("Registry (%1)").arg(s.fileName()));
 	else
 		locationOfSettings->setText(pathToLink(s.fileName()));
@@ -44,7 +47,7 @@ void ResourcesDialog::init()
 	locationOfSettings->setText(pathToLink(s.fileName()));
 #endif
 
-	locationOfResources->setText(pathToLink(TWUtils::getLibraryPath(QString(), false)));
+	locationOfResources->setText(pathToLink(Tw::Utils::ResourcesLibrary::getLibraryPath(QString(), false)));
 
 	connect(locationOfSettings, SIGNAL(linkActivated(const QString&)), this, SLOT(openURL(const QString&)));
 	connect(locationOfResources, SIGNAL(linkActivated(const QString&)), this, SLOT(openURL(const QString&)));
@@ -86,7 +89,7 @@ QDialog::DialogCode ResourcesDialog::doResourcesDialog(QWidget *parent)
 
 	dlg.show();
 
-	QDialog::DialogCode result = (DialogCode)dlg.exec();
+	QDialog::DialogCode result = static_cast<DialogCode>(dlg.exec());
 	return result;
 }
 

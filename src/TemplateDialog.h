@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2008-2010  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2008-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,11 +22,12 @@
 #ifndef TemplateDialog_H
 #define TemplateDialog_H
 
-#include <QDialog>
-#include <QString>
-#include <QItemSelection>
-
 #include "ui_TemplateDialog.h"
+
+#include <QDialog>
+#include <QFileSystemModel>
+#include <QItemSelection>
+#include <QString>
 
 class QDirModel;
 
@@ -36,18 +37,22 @@ class TemplateDialog : public QDialog, private Ui::TemplateDialog
 
 public:
 	TemplateDialog();
-	virtual ~TemplateDialog();
+	~TemplateDialog() override = default;
 
 	static QString doTemplateDialog();
+
+protected:
+	void showEvent(QShowEvent * event) override;
 
 private slots:
 	void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 	void itemActivated(const QModelIndex & index);
-	
+
 private:
 	void init();
 
-	QDirModel *model;
+	QFileSystemModel * model{nullptr};
+	bool _shouldResizeColumns{true};
 };
 
 #endif

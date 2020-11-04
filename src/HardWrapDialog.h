@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2008-2013  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2008-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,8 +22,9 @@
 #ifndef HardWrapDialog_H
 #define HardWrapDialog_H
 
-#include <QDialog>
 #include "ui_HardWrapDialog.h"
+
+#include <QDialog>
 
 const int kDefault_HardWrapWidth = 64;
 const int kHardWrapMode_Window = 0;
@@ -35,20 +36,19 @@ class HardWrapDialog : public QDialog, private Ui::HardWrapDialog
 	Q_OBJECT
 
 public:
-	HardWrapDialog(QWidget *parent);
-
-	virtual ~HardWrapDialog() { }
+	explicit HardWrapDialog(QWidget * parent);
+	~HardWrapDialog() override = default;
 
 	unsigned int lineWidth() const { // returns 0 for current window size, or char count
-	    return radio_fixedLineLength->isChecked() ? spinbox_charCount->value() : 0;
+		return radio_fixedLineLength->isChecked() ? static_cast<unsigned int>(spinbox_charCount->value()) : 0;
 	}
 
 	bool rewrap() const { // whether to re-wrap paragraphs (fill lines)
 	    return checkbox_rewrap->isChecked();
 	}
-	
+
 	int mode() const; // returns one of the kHardWrapMode_* values
-	
+
 	void saveSettings();
 
 protected:

@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2009-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,12 +20,15 @@
 */
 
 #include "scripting/JSScript.h"
-#include "TWApp.h"
+#include "Settings.h"
 
 #include <QScriptEngine>
 #include <QScriptEngineDebugger>
 #include <QScriptValue>
 #include <QTextStream>
+
+namespace Tw {
+namespace Scripting {
 
 static
 QVariant convertValue(const QScriptValue& value)
@@ -42,7 +45,7 @@ QVariant convertValue(const QScriptValue& value)
 	return value.toVariant();
 }
 
-bool JSScript::execute(Tw::Scripting::ScriptAPIInterface * tw) const
+bool JSScript::execute(ScriptAPIInterface * tw) const
 {
 	QFile scriptFile(m_Filename);
 	if (!scriptFile.open(QIODevice::ReadOnly)) {
@@ -60,7 +63,7 @@ bool JSScript::execute(Tw::Scripting::ScriptAPIInterface * tw) const
 
 	QScriptValue val;
 
-	QSETTINGS_OBJECT(settings);
+	Tw::Settings settings;
 	if (settings.value(QString::fromLatin1("scriptDebugger"), false).toBool()) {
 		QScriptEngineDebugger debugger;
 		debugger.attachTo(&engine);
@@ -78,3 +81,6 @@ bool JSScript::execute(Tw::Scripting::ScriptAPIInterface * tw) const
 		tw->SetResult(convertValue(val));
 	return true;
 }
+
+} // namespace Scripting
+} // namespace Tw

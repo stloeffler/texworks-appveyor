@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2018  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,15 +22,22 @@
 #ifndef TWApp_H
 #define TWApp_H
 
-#include <QApplication>
-#include <QList>
 #include <QAction>
-#include <QSettings>
+#include <QApplication>
 #include <QClipboard>
-#include <QVariant>
 #include <QHash>
+#include <QList>
+#if defined Q_OS_DARWIN
+#include <QMenu>
+#include <QMenuBar>
+#endif
+#include <QSettings>
+#include <QString>
+#include <QTextCodec>
+#include <QVariant>
 
-#include "ConfigurableApp.h"
+class Engine;
+class TWScriptManager;
 
 #if defined(Q_OS_WIN)
 #define PATH_LIST_SEP   ";"
@@ -40,36 +47,13 @@
 #define EXE
 #endif
 
-#ifndef TW_BUILD_ID
-#define TW_BUILD_ID unknown build
-#endif
-#define STRINGIFY_2(s) #s
-#define STRINGIFY(s) STRINGIFY_2(s)
-#define TW_BUILD_ID_STR STRINGIFY(TW_BUILD_ID)
-
 #define DEFAULT_ENGINE_NAME "pdfLaTeX"
-
-class QString;
-class QMenu;
-class QMenuBar;
-
-class Engine;
-class TWScriptManager;
 
 // general constants used by multiple document types
 const int kStatusMessageDuration = 3000;
 const int kNewWindowOffset = 32;
 
-#if defined(Q_OS_WIN) // for communication with the original instance
-#if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0500
-	#define _WIN32_WINNT			0x0500	// for HWND_MESSAGE
-#endif
-#include <windows.h>
-#define TW_HIDDEN_WINDOW_CLASS	TEXWORKS_NAME ":MessageTarget"
-#define TW_OPEN_FILE_MSG		(('T' << 8) + 'W')	// just a small sanity check for the receiver
-#endif
-
-class TWApp : public ConfigurableApp
+class TWApp : public QApplication
 {
 	Q_OBJECT
 
@@ -78,20 +62,20 @@ class TWApp : public ConfigurableApp
 
 public:
 	TWApp(int &argc, char **argv);
-	virtual ~TWApp();
+	~TWApp() override;
 
 	int maxRecentFiles() const;
 	void setMaxRecentFiles(int value);
 	void addToRecentFiles(const QMap<QString,QVariant>& fileProperties);
 
 	void emitHighlightLineOptionChanged();
-	
+
 	QMap<QString,QVariant> getFileProperties(const QString& path);
-	
+
 	void setBinaryPaths(const QStringList& paths);
 	void setEngineList(const QList<Engine>& engines);
 
-	const QStringList getBinaryPaths(QStringList& sysEnv);
+	const QStringList getBinaryPaths();
 	// runtime paths, including $PATH;
 	// also modifies passed-in sysEnv to include paths from prefs
 	QString findProgram(const QString& program, const QStringList& binPaths);
@@ -99,40 +83,35 @@ public:
 	const QStringList getPrefsBinaryPaths(); // only paths from prefs
 	const QList<Engine> getEngineList();
 	void saveEngineList();
-	
+
 	const Engine getNamedEngine(const QString& name);
 	const Engine getDefaultEngine();
 	void setDefaultEngine(const QString& name);
 
 	void setDefaultPaths();
 	void setDefaultEngineList();
-	
+
 	QTextCodec *getDefaultCodec();
 	void setDefaultCodec(QTextCodec *codec);
 
 	void openUrl(const QUrl& url);
 
 	static TWApp *instance();
-	
-	QString getPortableLibPath() const { return portableLibPath; }
+
+	static QStringList getTranslationList();
 
 	TWScriptManager* getScriptManager() { return scriptManager; }
-	
-	void notifyDictionaryListChanged() const { emit dictionaryListChanged(); }
 
 #if defined(Q_OS_WIN)
-	void createMessageTarget(QWidget* aWindow);
 	static QString GetWindowsVersionString();
 	static unsigned int GetWindowsVersion();
 #endif
-	void bringToFront();
 
-	QObject* openFile(const QString& fileName, const int pos = -1);
 	Q_INVOKABLE
 	QMap<QString, QVariant> openFileFromScript(const QString& fileName, QObject * scriptApiObj, const int pos = -1, const bool askUser = false);
 
 	Q_INVOKABLE QList<QVariant> getOpenWindows() const;
-	
+
 	// return the version of Tw (0xMMNNPP)
 	Q_INVOKABLE
 	static int getVersion();
@@ -153,7 +132,7 @@ public:
 	Q_INVOKABLE void unsetGlobal(const QString& key) { m_globals.remove(key); }
 	Q_INVOKABLE bool hasGlobal(const QString& key) const { return m_globals.contains(key); }
 	Q_INVOKABLE QVariant getGlobal(const QString& key) const { return m_globals[key]; }
-	
+
 #if defined(Q_OS_DARWIN)
 private:
 	// on the Mac only, we have a top-level app menu bar, including its own copy of the recent files menu
@@ -177,6 +156,9 @@ private:
 #endif
 
 public slots:
+	void bringToFront();
+	QObject* openFile(const QString& fileName, const int pos = -1);
+
 	// called by documents when they load a file
 	void updateRecentFileActions();
 
@@ -195,7 +177,7 @@ public slots:
 	void openHelpFile(const QString& helpDirName);
 
 	void applyTranslation(const QString& locale);
-	
+
 	void maybeQuit();
 
 	void updateScriptsList();
@@ -210,24 +192,19 @@ public slots:
 
 	QString getOpenFileName(QString selectedFilter = QString());
 	QStringList getOpenFileNames(QString selectedFilter = QString());
-	QString getSaveFileName(const QString& defaultName);
-	
+
 signals:
 	// emitted in response to updateRecentFileActions(); documents can listen to this if they have a recent files menu
 	void recentFileActionsChanged();
 
 	// emitted when the window list may have changed, so documents can update their window menu
 	void windowListChanged();
-	
+
 	// emitted when the engine list is changed from Preferences, so docs can update their menus
 	void engineListChanged();
-	
+
 	void scriptListChanged();
-	
-	// emitted when TWUtils::getDictionaryList reloads the dictionary list;
-	// windows can connect to it to rebuild, e.g., a spellchecking menu
-	void dictionaryListChanged() const;
-	
+
 	void syncPdf(const QString& sourceFile, int lineNo, int col, bool activatePreview);
 
 	void hideFloatersExcept(QWidget* theWindow);
@@ -247,11 +224,11 @@ private slots:
 	void globalDestroyed(QObject * obj);
 
 protected:
-	virtual bool event(QEvent *);
+	bool event(QEvent *) override;
 
 private:
 	void init();
-	
+
 	void arrangeWindows(WindowArrangementFunction func);
 
 	int recentFilesLimit;
@@ -262,18 +239,12 @@ private:
 	QStringList *defaultBinPaths;
 	QList<Engine> *engineList;
 	int defaultEngineIndex;
-	QString portableLibPath;
 
 	QList<QTranslator*> translators;
-	
+
 	TWScriptManager *scriptManager;
 
 	QHash<QString, QVariant> m_globals;
-	QList<QTextCodec*> customTextCodecs;
-	
-#if defined(Q_OS_WIN)
-	HWND messageTargetWindow;
-#endif
 
 	static TWApp *theAppInstance;
 };
@@ -288,40 +259,11 @@ class TWDocumentOpenEvent : public QEvent
 {
 public:
 	static const QEvent::Type type;
-	TWDocumentOpenEvent(const QString & filename, const int pos = 0) : QEvent(type), filename(filename), pos(pos) { }
-	
+	explicit TWDocumentOpenEvent(const QString & filename, const int pos = 0) : QEvent(type), filename(filename), pos(pos) { }
+
 	QString filename;
 	int pos;
 };
-
-
-#ifdef QT_DBUS_LIB
-#include <QtDBus>
-
-#define TW_SERVICE_NAME 	"org.tug.texworks.application"
-#define TW_APP_PATH		"/org/tug/texworks/application"
-#define TW_INTERFACE_NAME	"org.tug.texworks.application"
-
-class TWAdaptor: public QDBusAbstractAdaptor
-{
-	Q_OBJECT
-	Q_CLASSINFO("D-Bus Interface", "org.tug.texworks.application") // using the #define here fails :(
-
-private:
-	TWApp *app;
-
-public:
-	TWAdaptor(TWApp *application)
-		: QDBusAbstractAdaptor(application), app(application)
-		{ }
-	
-public slots:
-	Q_NOREPLY void openFile(const QString& fileName, const int position = -1)
-		{ app->openFile(fileName, position); }
-	Q_NOREPLY void bringToFront()
-		{ app->bringToFront(); }
-};
-#endif	// defined(QT_DBUS_LIB)
 
 #endif	// TWApp_H
 

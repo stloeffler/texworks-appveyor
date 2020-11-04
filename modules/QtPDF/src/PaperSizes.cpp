@@ -1,5 +1,20 @@
+/**
+ * Copyright (C) 2017-2020  Stefan Löffler
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
 #include "PaperSizes.h"
 #include <QList>
+
+namespace QtPDF {
 
 class StandardPaperSizes : public QList<PaperSize>
 {
@@ -215,7 +230,7 @@ PaperSize PaperSize::findForMillimeter(const QSizeF & paperSize)
   PaperSize ps(QString(), QSizeF(w, h));
   ps.setLandscape(ls);
 
-  int idx = standardPaperSizes.indexOf(ps);
+  auto idx = standardPaperSizes.indexOf(ps);
   if (idx < 0) return ps;
 
   ps = standardPaperSizes[idx];
@@ -269,3 +284,5 @@ bool PaperSize::operator ==(const PaperSize & other) const
 
   return false;
 }
+
+} // namespace QtPDF

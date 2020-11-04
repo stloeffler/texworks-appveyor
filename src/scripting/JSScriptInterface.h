@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2009-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,24 +22,31 @@
 #ifndef JSScriptInterface_H
 #define JSScriptInterface_H
 
-#include "TWScript.h"
+#include "scripting/Script.h"
+#include "scripting/ScriptLanguageInterface.h"
+
+namespace Tw {
+namespace Scripting {
 
 // for JSScript, we provide a plugin-like factory, but it's actually compiled
 // and linked directly with the main application (at least for now)
-class JSScriptInterface : public QObject, public TWScriptLanguageInterface
+class JSScriptInterface : public QObject, public ScriptLanguageInterface
 {
 	Q_OBJECT
-	Q_INTERFACES(TWScriptLanguageInterface)
+	Q_INTERFACES(Tw::Scripting::ScriptLanguageInterface)
 
 public:
-	JSScriptInterface() {}
-	virtual ~JSScriptInterface() {}
+	JSScriptInterface() = default;
+	~JSScriptInterface() override = default;
 
-	virtual TWScript* newScript(const QString& fileName);
+	Script* newScript(const QString& fileName) override;
 
-	virtual QString scriptLanguageName() const { return QString::fromLatin1("QtScript"); }
-	virtual QString scriptLanguageURL() const { return QString::fromLatin1("http://doc.qt.io/qt-5/qtscript-index.html"); }
-	virtual bool canHandleFile(const QFileInfo& fileInfo) const { return fileInfo.suffix() == QLatin1String("js"); }
+	QString scriptLanguageName() const override { return QString::fromLatin1("QtScript"); }
+	QString scriptLanguageURL() const override { return QString::fromLatin1("http://doc.qt.io/qt-5/qtscript-index.html"); }
+	bool canHandleFile(const QFileInfo& fileInfo) const override { return fileInfo.suffix() == QLatin1String("js"); }
 };
+
+} // namespace Scripting
+} // namespace Tw
 
 #endif // !defined(JSScriptInterface_H)

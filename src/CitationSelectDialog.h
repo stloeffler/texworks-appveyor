@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2017-2018  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2017-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,31 +21,32 @@
 #ifndef __CITATION_SELECT_DIALOG_H
 #define __CITATION_SELECT_DIALOG_H
 
+#include "BibTeXFile.h"
+
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QLineEdit>
-#include <QTableView>
 #include <QSet>
 #include <QSortFilterProxyModel>
-#include "BibTeXFile.h"
+#include <QTableView>
 
 class CitationModel : public QAbstractTableModel {
-	Q_OBJECT;
+	Q_OBJECT
 public:
 	CitationModel(QObject * parent = nullptr);
-	virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-	virtual int columnCount(const QModelIndex &parent = QModelIndex()) const;
-	virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
-	virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
-	virtual Qt::ItemFlags flags(const QModelIndex &index) const;
-	virtual bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+	QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+	QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 
-	virtual QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
+	QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
 
 	void setSelectedKeys(const QStringList & keys);
 	QStringList selectedKeys() const { return _selectedKeys.values(); }
 
-	const BibTeXFile::Entry * getEntry(const unsigned int idx) const { return (idx < _entries.size() ? _entries[idx] : nullptr); }
+	const BibTeXFile::Entry * getEntry(const unsigned int idx) const { return (static_cast<int>(idx) < _entries.size() ? _entries[static_cast<int>(idx)] : nullptr); }
 	const BibTeXFile::Entry * getEntry(const QString & key) const;
 
 	void addBibTeXFile(const BibTeXFile & file);
@@ -61,8 +62,8 @@ class CitationProxyModel : public QSortFilterProxyModel
 {
 public:
 	CitationProxyModel(QObject * parent = nullptr) : QSortFilterProxyModel(parent) { }
-	bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const;
-	virtual void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) { setSortRole(column == 0 ? Qt::CheckStateRole : Qt::DisplayRole); QSortFilterProxyModel::sort(column, order); }
+	bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
+	void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override { setSortRole(column == 0 ? Qt::CheckStateRole : Qt::DisplayRole); QSortFilterProxyModel::sort(column, order); }
 };
 
 class CitationTableView : public QTableView
@@ -71,7 +72,7 @@ class CitationTableView : public QTableView
 public:
 	CitationTableView(QWidget * parent = nullptr) : QTableView(parent) { }
 protected:
-	virtual void keyPressEvent(QKeyEvent * event);
+	void keyPressEvent(QKeyEvent * event) override;
 };
 
 // The ui header must be included after declaring CitationTableView, as the
@@ -80,11 +81,11 @@ protected:
 
 class CitationSelectDialog : public QDialog, private Ui::CitationSelectDialog
 {
-	Q_OBJECT;
+	Q_OBJECT
 public:
 
-	CitationSelectDialog(QWidget * parent);
-	virtual ~CitationSelectDialog() { }
+	explicit CitationSelectDialog(QWidget * parent);
+	~CitationSelectDialog() override = default;
 
 	CitationModel & model() { return _model; }
 
@@ -101,7 +102,7 @@ public:
 public slots:
 	void buttonClicked(QAbstractButton * button);
 	void resetData();
-	virtual int exec() { tableView->resizeColumnsToContents(); return QDialog::exec(); }
+	int exec() override { tableView->resizeColumnsToContents(); return QDialog::exec(); }
 
 
 protected:
@@ -115,9 +116,9 @@ class KeyForwarder : public QObject
 {
 	Q_OBJECT
 public:
-	KeyForwarder(QObject * target, QObject * parent = nullptr);
+	explicit KeyForwarder(QObject * target, QObject * parent = nullptr);
 protected:
-	bool eventFilter(QObject * watched, QEvent * event);
+	bool eventFilter(QObject * watched, QEvent * event) override;
 	QObject * _target;
 	QSet<int> _keysToForward;
 };

@@ -9,31 +9,38 @@ SOURCES = \
   "../src/ClosableTabWidget.cpp" \
   "../src/CommandlineParser.cpp" \
   "../src/CompletingEdit.cpp" \
-  "../src/ConfigurableApp.cpp" \
   "../src/ConfirmDelete.cpp" \
   "../src/Engine.cpp" \
   "../src/FindDialog.cpp" \
   "../src/HardWrapDialog.cpp" \
-  "../src/PDFDocument.cpp" \
+  "../src/InterProcessCommunicatorDBus.cpp" \
+  "../src/PDFDocumentWindow.cpp" \
   "../src/PrefsDialog.cpp" \
   "../src/ResourcesDialog.cpp" \
   "../src/ScreenCalibrationWidget.cpp" \
-  "../src/ScriptManager.cpp" \
+  "../src/ScriptManagerWidget.cpp" \
+  "../src/Settings.cpp" \
   "../src/TWApp.cpp" \
-  "../src/TWScript.cpp" \
-  "../src/TWScriptAPI.cpp" \
-  "../src/TWScriptable.cpp" \
+  "../src/TWScriptManager.cpp" \
+  "../src/TWScriptableWindow.cpp" \
   "../src/TWSynchronizer.cpp" \
   "../src/TWSystemCmd.cpp" \
   "../src/TWTextCodecs.cpp" \
   "../src/TWUtils.cpp" \
   "../src/TeXDocks.cpp" \
-  "../src/TeXDocument.cpp" \
+  "../src/TeXDocumentWindow.cpp" \
   "../src/TeXHighlighter.cpp" \
   "../src/TemplateDialog.cpp" \
+  "../src/document/SpellChecker.cpp" \
+  "../src/document/TeXDocument.cpp" \
+  "../src/document/TextDocument.cpp" \
   "../src/main.cpp" \
   "../src/scripting/JSScript.cpp" \
-  "../src/scripting/JSScriptInterface.cpp"
+  "../src/scripting/JSScriptInterface.cpp" \
+  "../src/scripting/Script.cpp" \
+  "../src/scripting/ScriptAPI.cpp" \
+  "../src/ui/LineNumberWidget.cpp" \
+  "../src/utils/FileVersionDatabase.cpp"
 
 HEADERS = \
   "../src/BibTeXFile.h" \
@@ -42,7 +49,6 @@ HEADERS = \
   "../src/ClosableTabWidget.h" \
   "../src/CommandlineParser.h" \
   "../src/CompletingEdit.h" \
-  "../src/ConfigurableApp.h" \
   "../src/ConfirmDelete.h" \
   "../src/DefaultBinaryPaths.h" \
   "../src/DefaultPrefs.h" \
@@ -50,41 +56,52 @@ HEADERS = \
   "../src/FindDialog.h" \
   "../src/GitRev.h" \
   "../src/HardWrapDialog.h" \
-  "../src/PDFDocument.h" \
+  "../src/InterProcessCommunicator.h" \
+  "../src/PDFDocumentWindow.h" \
   "../src/PrefsDialog.h" \
   "../src/ResourcesDialog.h" \
   "../src/ScreenCalibrationWidget.h" \
-  "../src/ScriptManager.h" \
+  "../src/ScriptManagerWidget.h" \
+  "../src/Settings.h" \
   "../src/TWApp.h" \
-  "../src/TWScript.h" \
-  "../src/TWScriptAPI.h" \
-  "../src/TWScriptable.h" \
+  "../src/TWScriptManager.h" \
+  "../src/TWScriptableWindow.h" \
   "../src/TWSynchronizer.h" \
   "../src/TWSystemCmd.h" \
   "../src/TWTextCodecs.h" \
   "../src/TWUtils.h" \
   "../src/TWVersion.h" \
   "../src/TeXDocks.h" \
-  "../src/TeXDocument.h" \
+  "../src/TeXDocumentWindow.h" \
   "../src/TeXHighlighter.h" \
   "../src/TemplateDialog.h" \
+  "../src/document/Document.h" \
+  "../src/document/SpellChecker.h" \
+  "../src/document/TeXDocument.h" \
+  "../src/document/TextDocument.h" \
   "../src/scripting/JSScript.h" \
   "../src/scripting/JSScriptInterface.h" \
-  "../src/scripting/ScriptAPIInterface.h"
+  "../src/scripting/Script.h" \
+  "../src/scripting/ScriptAPI.h" \
+  "../src/scripting/ScriptAPIInterface.h" \
+  "../src/scripting/ScriptLanguageInterface.h" \
+  "../src/ui/LineNumberWidget.h" \
+  "../src/utils/FileVersionDatabase.h"
 
 FORMS = \
   "../src/CitationSelectDialog.ui" \
+  "../src/CompletingEdit.ui" \
   "../src/ConfirmDelete.ui" \
   "../src/Find.ui" \
   "../src/HardWrapDialog.ui" \
-  "../src/PDFDocument.ui" \
+  "../src/PDFDocumentWindow.ui" \
   "../src/PDFFind.ui" \
   "../src/PrefsDialog.ui" \
   "../src/Replace.ui" \
   "../src/ResourcesDialog.ui" \
-  "../src/ScriptManager.ui" \
+  "../src/ScriptManagerWidget.ui" \
   "../src/SearchResults.ui" \
-  "../src/TeXDocument.ui" \
+  "../src/TeXDocumentWindow.ui" \
   "../src/TemplateDialog.ui" \
   "../src/ToolConfig.ui"
 

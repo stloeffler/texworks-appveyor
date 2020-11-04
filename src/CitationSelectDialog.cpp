@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2017-2018  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2017-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -18,9 +18,11 @@
 	For links to further information, or to contact the authors,
 	see <http://www.tug.org/texworks/>.
 */
+
 #include "CitationSelectDialog.h"
-#include <QKeyEvent>
+
 #include <QAbstractButton>
+#include <QKeyEvent>
 
 KeyForwarder::KeyForwarder(QObject * target, QObject * parent /* = nullptr */)
   : QObject(parent), _target(target)
@@ -122,7 +124,7 @@ QStringList CitationSelectDialog::getSelectedKeys(const bool ordered /* = true *
 		else unknownKeys.append(key);
 	}
 
-	qStableSort(entries.begin(), entries.end(), BibTeXEntryLessThan);
+	std::stable_sort(entries.begin(), entries.end(), BibTeXEntryLessThan);
 
 	keys.clear();
 	Q_FOREACH(const BibTeXFile::Entry * entry, entries)
@@ -198,11 +200,11 @@ QVariant CitationModel::headerData(int section, Qt::Orientation orientation, int
 		return QVariant();
 
 	if (role == Qt::DisplayRole) {
-		if (section == 1) return CitationSelectDialog::trUtf8("Type");
-		if (section == 2) return CitationSelectDialog::trUtf8("Author");
-		if (section == 3) return CitationSelectDialog::trUtf8("Title");
-		if (section == 4) return CitationSelectDialog::trUtf8("Year");
-		if (section == 5) return CitationSelectDialog::trUtf8("Journal");
+		if (section == 1) return CitationSelectDialog::tr("Type");
+		if (section == 2) return CitationSelectDialog::tr("Author");
+		if (section == 3) return CitationSelectDialog::tr("Title");
+		if (section == 4) return CitationSelectDialog::tr("Year");
+		if (section == 5) return CitationSelectDialog::tr("Journal");
 		return QVariant();
 	}
 	return QVariant();
@@ -220,14 +222,18 @@ void CitationModel::setSelectedKeys(const QStringList & keys)
 {
 	QModelIndex tl, br;
 
-	for (unsigned int iRow = 0; iRow < rowCount(); ++iRow) {
+	for (int iRow = 0; iRow < rowCount(); ++iRow) {
 		const BibTeXFile::Entry * e = _entries[iRow];
 		if (_selectedKeys.contains(e->key()) != keys.contains(e->key())) {
 			br = index(iRow, 0);
 			if (!tl.isValid()) tl = br;
 		}
 	}
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 	_selectedKeys = keys.toSet();
+#else
+	_selectedKeys = QSet<QString>(keys.begin(), keys.end());
+#endif
 
 	emit dataChanged(tl, br);
 }
@@ -274,7 +280,7 @@ bool CitationModel::setData(const QModelIndex &index, const QVariant &value, int
 void CitationModel::addBibTeXFile(const BibTeXFile & file)
 {
 	int n = rowCount();
-	beginInsertRows(QModelIndex(), n, n + file.numEntries() - 1);
+	beginInsertRows(QModelIndex(), n, n + static_cast<int>(file.numEntries()) - 1);
 	_bibFiles.append(file);
 	endInsertRows();
 }
@@ -282,14 +288,14 @@ void CitationModel::addBibTeXFile(const BibTeXFile & file)
 void CitationModel::rebuildEntryCache()
 {
 	_entries.clear();
-	unsigned int i = 0, n = 0;
+	int i = 0, n = 0;
 
 	// resize the vector first to avoid reallocations later on
-	for (unsigned int iBibFile = 0; iBibFile < _bibFiles.size(); ++iBibFile)
+	for (int iBibFile = 0; iBibFile < _bibFiles.size(); ++iBibFile)
 		n += _bibFiles[iBibFile].numEntries();
 	_entries.resize(n);
 
-	for (unsigned int iBibFile = 0; iBibFile < _bibFiles.size(); ++iBibFile) {
+	for (int iBibFile = 0; iBibFile < _bibFiles.size(); ++iBibFile) {
 		for (unsigned int iEntry = 0; iEntry < _bibFiles[iBibFile].numEntries(); ++iEntry, ++i) {
 			_entries[i] = &(_bibFiles[iBibFile].entry(iEntry));
 		}
@@ -299,10 +305,19 @@ void CitationModel::rebuildEntryCache()
 bool CitationProxyModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
 {
 	Q_UNUSED(source_parent)
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	constexpr auto SkipEmptyParts = QString::SkipEmptyParts;
+#else
+	constexpr auto SkipEmptyParts = Qt::SkipEmptyParts;
+#endif
 	static QLatin1String space(" ");
 	const BibTeXFile::Entry * e = static_cast<const BibTeXFile::Entry*>(sourceModel()->index(source_row, 1).internalPointer());
 	QString haystack = e->key() + space + e->typeString() + space + e->author() + space + e->title() + space + e->year() + space + e->howPublished();
-	QStringList needles = filterRegExp().pattern().split(QChar::fromLatin1(' '), QString::SkipEmptyParts);
+#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+	QStringList needles = filterRegExp().pattern().split(QChar::fromLatin1(' '), SkipEmptyParts);
+#else
+	QStringList needles = filterRegularExpression().pattern().split(QChar::fromLatin1(' '), SkipEmptyParts);
+#endif
 
 	haystack = haystack.toLower();
 

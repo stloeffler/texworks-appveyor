@@ -11,90 +11,123 @@
 # to remember to re-run `cmake` if a source file is added._
 set(TEXWORKS_SRCS BibTeXFile.cpp
                   CitationSelectDialog.cpp
-                  ClickableLabel.cpp
-                  ClosableTabWidget.cpp
-                  CommandlineParser.cpp
                   CompletingEdit.cpp
-                  ConfigurableApp.cpp
                   ConfirmDelete.cpp
                   Engine.cpp
                   FindDialog.cpp
                   HardWrapDialog.cpp
                   main.cpp
-                  PDFDocument.cpp
+                  PDFDocumentWindow.cpp
                   PrefsDialog.cpp
                   ResourcesDialog.cpp
-                  ScreenCalibrationWidget.cpp
-                  ScriptManager.cpp
+                  ScriptManagerWidget.cpp
+                  Settings.cpp
                   TemplateDialog.cpp
                   TeXDocks.cpp
-                  TeXDocument.cpp
+                  TeXDocumentWindow.cpp
                   TeXHighlighter.cpp
                   TWApp.cpp
-                  TWScriptable.cpp
-                  TWScriptAPI.cpp
-                  TWScript.cpp
+                  TWScriptableWindow.cpp
+                  TWScriptManager.cpp
                   TWSynchronizer.cpp
-                  TWSystemCmd.cpp
-                  TWTextCodecs.cpp
                   TWUtils.cpp
-                  scripting/JSScriptInterface.cpp
-                  scripting/JSScript.cpp)
+                  document/Document.cpp
+                  document/SpellChecker.cpp
+                  document/TextDocument.cpp
+                  document/TeXDocument.cpp
+                  scripting/ECMAScriptInterface.cpp
+                  scripting/ECMAScript.cpp
+                  scripting/ScriptAPI.cpp
+                  scripting/Script.cpp
+                  ui/ClickableLabel.cpp
+                  ui/ClosableTabWidget.cpp
+                  ui/LineNumberWidget.cpp
+                  ui/ScreenCalibrationWidget.cpp
+                  utils/CommandlineParser.cpp
+                  utils/FileVersionDatabase.cpp
+                  utils/FullscreenManager.cpp
+                  utils/ResourcesLibrary.cpp
+                  utils/SystemCommand.cpp
+                  utils/TextCodecs.cpp
+                  utils/VersionInfo.cpp
+                  )
 
 set(TEXWORKS_HDRS BibTeXFile.h
                   CitationSelectDialog.h
-                  ClickableLabel.h
-                  ClosableTabWidget.h
-                  CommandlineParser.h
                   CompletingEdit.h
-                  ConfigurableApp.h
                   ConfirmDelete.h
+                  DefaultBinaryPaths.h
                   DefaultPrefs.h
                   Engine.h
                   FindDialog.h
                   GitRev.h
                   HardWrapDialog.h
-                  PDFDocument.h
+                  PDFDocumentWindow.h
                   PrefsDialog.h
                   ResourcesDialog.h
-                  ScreenCalibrationWidget.h
-                  ScriptManager.h
+                  ScriptManagerWidget.h
+                  Settings.h
                   TemplateDialog.h
                   TeXDocks.h
-                  TeXDocument.h
+                  TeXDocumentWindow.h
                   TeXHighlighter.h
                   TWApp.h
-                  TWScriptable.h
-                  TWScriptAPI.h
-                  TWScript.h
+                  TWScriptableWindow.h
+                  TWScriptManager.h
                   TWSynchronizer.h
-                  TWSystemCmd.h
-                  TWTextCodecs.h
                   TWUtils.h
                   TWVersion.h
+                  InterProcessCommunicator.h
+                  document/Document.h
+                  document/SpellChecker.h
+                  document/TextDocument.h
+                  document/TeXDocument.h
                   scripting/ScriptAPIInterface.h
-                  scripting/JSScriptInterface.h
-                  scripting/JSScript.h)
+                  scripting/ScriptLanguageInterface.h
+                  scripting/ScriptAPI.h
+                  scripting/Script.h
+                  ui/ClickableLabel.h
+                  ui/ClosableTabWidget.h
+                  ui/LineNumberWidget.h
+                  ui/ScreenCalibrationWidget.h
+                  utils/CommandlineParser.h
+                  utils/FileVersionDatabase.h
+                  utils/FullscreenManager.h
+                  utils/ResourcesLibrary.h
+                  utils/SystemCommand.h
+                  utils/TextCodecs.h
+                  utils/VersionInfo.h
+                  )
 
 if (WIN32)
-  list(APPEND TEXWORKS_HDRS DefaultBinaryPathsWin.h)
+  list(APPEND TEXWORKS_SRCS InterProcessCommunicatorWin.cpp)
+elseif (APPLE)
+  list(APPEND TEXWORKS_SRCS InterProcessCommunicatorDummy.cpp)
+  list(APPEND TEXWORKS_SRCS utils/OSVersionInfo_mac.mm)
 else ()
-  list(APPEND TEXWORKS_HDRS DefaultBinaryPaths.h)
+  list(APPEND TEXWORKS_SRCS InterProcessCommunicatorDBus.cpp)
 endif ()
 
+if (WITH_QTSCRIPT)
+  list(APPEND TEXWORKS_SRCS scripting/JSScriptInterface.cpp scripting/JSScript.cpp)
+  list(APPEND TEXWORKS_HDRS scripting/JSScriptInterface.h scripting/JSScript.h)
+  add_definitions(-DWITH_QTSCRIPT)
+endif (WITH_QTSCRIPT)
+
 set(TEXWORKS_UIS CitationSelectDialog.ui
+                 CompletingEdit.ui
                  ConfirmDelete.ui
                  Find.ui
                  HardWrapDialog.ui
-                 PDFDocument.ui
+                 PDFDocumentWindow.ui
                  PDFFind.ui
                  PrefsDialog.ui
                  Replace.ui
                  ResourcesDialog.ui
-                 ScriptManager.ui
+                 ScriptManagerWidget.ui
                  SearchResults.ui
                  TemplateDialog.ui
-                 TeXDocument.ui
+                 TeXDocumentWindow.ui
                  ToolConfig.ui)
 
 set(TEXWORKS_RCS ${TeXworks_SOURCE_DIR}/res/resfiles.qrc
@@ -104,7 +137,8 @@ FILE(GLOB TEXWORKS_TRANS_TS   "${TeXworks_SOURCE_DIR}/trans/*.ts")
 FILE(GLOB QT_TRANS_QM         "${TeXworks_SOURCE_DIR}/trans/qt/*.qm")
 
 IF ( WIN32 )
-  LIST(APPEND TEXWORKS_SRCS ${TeXworks_SOURCE_DIR}/res/TeXworks.rc)
+  configure_file(${TeXworks_SOURCE_DIR}/res/TeXworks.rc TeXworks.rc)
+  list(APPEND TEXWORKS_SRCS ${CMAKE_CURRENT_BINARY_DIR}/TeXworks.rc)
 ENDIF ( WIN32 )
 
 # These source files along with the `.moc` files generated from some headers
@@ -112,16 +146,16 @@ ENDIF ( WIN32 )
 # `PARENT_SCOPE` (top level CMake file) so that they will be available to the
 # build processes of the scripting language plugins.
 SET(TeXworks_SCRIPT_API
-  ${CMAKE_CURRENT_SOURCE_DIR}/TWScript.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/TWScriptAPI.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripting/Script.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripting/ScriptAPI.cpp
   PARENT_SCOPE
 )
 
 SET(TeXworks_SCRIPT_API_H
-  ${CMAKE_CURRENT_SOURCE_DIR}/TWScript.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/TWScriptAPI.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripting/Script.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripting/ScriptAPI.h
   ${CMAKE_CURRENT_SOURCE_DIR}/TWSystemCmd.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ConfigurableApp.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Settings.h
   PARENT_SCOPE
 )
 
@@ -134,9 +168,9 @@ SET(TeXworks_SCRIPT_API_H
 IF ( APPLE )
   SET(GUI_TYPE MACOSX_BUNDLE)
 
-  LIST(APPEND TeXworks_LIBS  "-framework CoreServices")
+  LIST(APPEND TeXworks_LIBS  "-framework Foundation")
 
-  FILE(GLOB TeXworks_APP_ICONS ${TeXworks_SOURCE_DIR}/*.icns)
+  set(TeXworks_APP_ICONS "${TeXworks_SOURCE_DIR}/res/TeXworks.icns" "${TeXworks_SOURCE_DIR}/res/TeXworks-doc.icns")
   SET_SOURCE_FILES_PROPERTIES( ${TeXworks_APP_ICONS}
     PROPERTIES
       MACOSX_PACKAGE_LOCATION Resources
@@ -166,6 +200,7 @@ ADD_EXECUTABLE(TeXworks ${GUI_TYPE}
   ${TEXWORKS_RCS}
   ${TeXworks_APP_ICONS}
 )
+add_dependencies(TeXworks GitRev)
 
 if (UNIX AND NOT APPLE)
   set_target_properties(TeXworks PROPERTIES
@@ -173,12 +208,28 @@ if (UNIX AND NOT APPLE)
   )
 endif ()
 
+target_compile_options(TeXworks PRIVATE ${WARNING_OPTIONS})
+
+
 # Add translations
 target_add_qt_translations(TeXworks
-  PRO_FILE "${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro"
   TS_FILES ${TEXWORKS_TRANS_TS}
   QM_FILES ${QT_TRANS_QM}
 )
+
+get_target_property(lupdatePath Qt${QT_VERSION_MAJOR}::lupdate LOCATION)
+get_target_property(_sources TeXworks SOURCES)
+add_custom_target(${PROJECT_NAME}_UpdateTranslations COMMAND "${CMAKE_COMMAND}"
+  "-DOUTPUTFILE=\"${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro\""
+  "-DPROJECT_NAME=\"${PROJECT_NAME}\""
+  "-DQt5_LUPDATE_EXECUTABLE=\"${lupdatePath}\""
+  "-DFILES=\"${_sources};${TEXWORKS_TRANS_TS}\""
+  -P "${PROJECT_SOURCE_DIR}/modules/QtPDF/CMake/Modules/UpdateTranslations.cmake"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+if (NOT TARGET UpdateTranslations)
+  add_custom_target(UpdateTranslations)
+endif (NOT TARGET UpdateTranslations)
+add_dependencies(UpdateTranslations ${PROJECT_NAME}_UpdateTranslations)
 
 IF (UNIX)
   # Required (at least) on OpenBSD to make scripting plugins work
@@ -212,14 +263,14 @@ endif ()
 IF (APPLE)
   SET(VER ${TeXworks_VERSION})
   SET(REV ${TeXworks_GIT_HASH})
-  CONFIGURE_FILE(${TeXworks_SOURCE_DIR}/TeXworks.plist.in
-    ${TeXworks_SOURCE_DIR}/TeXworks.plist
+  CONFIGURE_FILE(${TeXworks_SOURCE_DIR}/res/TeXworks.plist.in
+    TeXworks.plist
     @ONLY
   )
 
   SET_TARGET_PROPERTIES( TeXworks PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST
-      ${TeXworks_SOURCE_DIR}/TeXworks.plist
+      ${CMAKE_CURRENT_BINARY_DIR}/TeXworks.plist
   )
 ENDIF ()
 
@@ -242,15 +293,18 @@ else ()
 endif ()
 
 IF ( UNIX AND NOT APPLE )
-  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/images/TeXworks.png DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_ICON_DIR})
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/images/TeXworks.png DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_ICON_DIR}/512x512/apps)
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/images/TeXworks-128.png DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_ICON_DIR}/128x128/apps RENAME TeXworks.png)
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/images/TeXworks-64.png DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_ICON_DIR}/64x64/apps RENAME TeXworks.png)
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/images/TeXworks-48.png DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_ICON_DIR}/48x48/apps RENAME TeXworks.png)
   INSTALL(FILES
     ${TeXworks_SOURCE_DIR}/COPYING
     ${TeXworks_SOURCE_DIR}/README.md
     ${TeXworks_SOURCE_DIR}/NEWS
   DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_DOCS_DIR})
-  INSTALL(FILES ${TeXworks_SOURCE_DIR}/man/texworks.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_MAN_DIR})
-  INSTALL(FILES ${TeXworks_SOURCE_DIR}/texworks.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_DESKTOP_DIR})
-  INSTALL(FILES ${TeXworks_SOURCE_DIR}/texworks.appdata.xml DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_APPDATA_DIR})
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/texworks.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_MAN_DIR})
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/texworks.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_DESKTOP_DIR})
+  INSTALL(FILES ${TeXworks_SOURCE_DIR}/res/texworks.appdata.xml DESTINATION ${CMAKE_INSTALL_PREFIX}/${TeXworks_APPDATA_DIR})
 ENDIF ( UNIX AND NOT APPLE )
 
 # On OS X, ensure there is always a `qt.conf` file as all hell will break loose
