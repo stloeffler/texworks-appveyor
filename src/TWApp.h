@@ -60,6 +60,9 @@ class TWApp : public QApplication
 	// window positioning utilities
 	typedef void (WindowArrangementFunction)(const QWidgetList& windows, const QRect& bounds);
 
+	// FIXME: Required for functor-access to private slot openRecentFile()
+	friend class TWUtils;
+
 public:
 	TWApp(int &argc, char **argv);
 	~TWApp() override;
@@ -134,31 +137,35 @@ public:
 	Q_INVOKABLE QVariant getGlobal(const QString& key) const { return m_globals[key]; }
 
 #if defined(Q_OS_DARWIN)
+	void recreateSpecialMenuItems();
 private:
 	// on the Mac only, we have a top-level app menu bar, including its own copy of the recent files menu
 	QMenuBar *menuBar;
 
-	QMenu *menuFile;
-	QAction *actionNew;
-	QAction *actionNew_from_Template;
-	QAction *actionOpen;
-	QAction *actionPreferences;
-	QAction *actionQuit;
+	QMenu *menuFile{nullptr};
+	QAction *actionNew{nullptr};
+	QAction *actionNew_from_Template{nullptr};
+	QAction *actionOpen{nullptr};
+	QAction *actionPreferences{nullptr};
+	QAction *actionQuit{nullptr};
 
-	QMenu *menuRecent;
-	QAction *actionClear_Recent_Files;
+	QMenu *menuRecent{nullptr};
+	QAction *actionClear_Recent_Files{nullptr};
 	QList<QAction*> recentFileActions;
 
-	QMenu *menuHelp;
-	QAction *aboutAction;
-	QAction *homePageAction;
-	QAction *mailingListAction;
+	QMenu *menuHelp{nullptr};
+	QAction *aboutAction{nullptr};
+	QAction *homePageAction{nullptr};
+	QAction *mailingListAction{nullptr};
 #endif
 
 public slots:
 	void bringToFront();
 	QObject* openFile(const QString& fileName, const int pos = -1);
 
+	void preferences();
+
+	void clearRecentFiles();
 	// called by documents when they load a file
 	void updateRecentFileActions();
 
@@ -186,6 +193,7 @@ public slots:
 	void about();
 	void doResourcesDialog() const;
 	QObject * newFile() const;
+	QObject * newFromTemplate() const;
 	void open();
 	void stackWindows();
 	void tileWindows();
@@ -214,10 +222,7 @@ signals:
 	void highlightLineOptionChanged();
 
 private slots:
-	void clearRecentFiles();
-	QObject * newFromTemplate() const;
 	void openRecentFile();
-	void preferences();
 
 	void changeLanguage();
 

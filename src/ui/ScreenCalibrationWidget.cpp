@@ -38,10 +38,14 @@ ScreenCalibrationWidget::ScreenCalibrationWidget(QWidget * parent)
 	_sbDPI->setRange(0, 9999);
 	_sbDPI->setValue(physicalDpiX());
 	_sbDPI->installEventFilter(this);
-	connect(_sbDPI, SIGNAL(valueChanged(double)), this, SLOT(repaint()));
-	connect(_sbDPI, SIGNAL(valueChanged(double)), this, SIGNAL(dpiChanged(double)));
+	connect(_sbDPI, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, static_cast<void (ScreenCalibrationWidget::*)()>(&ScreenCalibrationWidget::repaint));
+	connect(_sbDPI, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &ScreenCalibrationWidget::dpiChanged);
 
-	connect(&_unitSignalMapper, SIGNAL(mapped(int)), this, SLOT(setUnit(int)));
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+	connect(&_unitSignalMapper, static_cast<void (QSignalMapper::*)(int)>(&QSignalMapper::mapped), this, &ScreenCalibrationWidget::setUnit);
+#else
+	connect(&_unitSignalMapper, &QSignalMapper::mappedInt, this, &ScreenCalibrationWidget::setUnit);
+#endif
 
 	setToolTip(tr("Drag the ruler or change the value to match real world lengths.\nCommon paper sizes are marked as well (you may need to resize the dialog window to see them).\nUse the context menu to change the units."));
 
@@ -93,13 +97,13 @@ void ScreenCalibrationWidget::retranslate()
 	a->setCheckable(true);
 	a->setChecked(_curUnit == 0);
 	_unitSignalMapper.setMapping(a, 0);
-	connect(a, SIGNAL(triggered()), &_unitSignalMapper, SLOT(map()));
+	connect(a, &QAction::triggered, &_unitSignalMapper, static_cast<void (QSignalMapper::*)()>(&QSignalMapper::map));
 	_contextMenuActionGroup.addAction(a);
 	a = _contextMenu.addAction(tr("in"));
 	a->setCheckable(true);
 	a->setChecked(_curUnit == 1);
 	_unitSignalMapper.setMapping(a, 1);
-	connect(a, SIGNAL(triggered()), &_unitSignalMapper, SLOT(map()));
+	connect(a, &QAction::triggered, &_unitSignalMapper, static_cast<void (QSignalMapper::*)()>(&QSignalMapper::map));
 	_contextMenuActionGroup.addAction(a);
 }
 
@@ -226,7 +230,7 @@ void ScreenCalibrationWidget::mousePressEvent(QMouseEvent * event)
 	if (event->buttons() == Qt::LeftButton && _rulerRect.contains(event->pos(), true)) {
 		_mouseDownPos = event->pos();
 		double dpi = _sbDPI->value();
-		_mouseDownInches = (event->x() - _rulerRect.left()) / dpi;
+		_mouseDownInches = (event->pos().x() - _rulerRect.left()) / dpi;
 	}
 }
 
@@ -238,7 +242,7 @@ void ScreenCalibrationWidget::mouseMoveEvent(QMouseEvent * event)
 	if (!_isDragging && event->buttons() == Qt::LeftButton && (event->pos() - _mouseDownPos).manhattanLength() >= QApplication::startDragDistance())
 		_isDragging = true;
 	if (_isDragging) {
-		int px = event->x() - _rulerRect.left();
+		int px = event->pos().x() - _rulerRect.left();
 		if (px <= 0)
 			px = _mouseDownPos.x() - _rulerRect.left();
 		double dpi = px / _mouseDownInches;
