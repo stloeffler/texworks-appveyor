@@ -23,6 +23,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <memory>
+
+#include <QDebug>
 #endif
 
 // Comparison operator for QSizeF needed to use QSizeF as keys in a QMap
@@ -1076,7 +1078,9 @@ QSharedPointer<Backend::Document> PopplerQtBackend::newDocument(const QString & 
     globalParamsInitialized = true;
     #if defined(POPPLER_HAS_GLOBALPARAMSINITER)
       QDir dataDir{QCoreApplication::applicationDirPath()};
+qDebug() << dataDir;
       if (dataDir.cd(QStringLiteral("../share/poppler"))) {
+qDebug() << dataDir;
         GlobalParamsIniter::setCustomDataDir(qPrintable(dataDir.path()));
       }
     #else // defined(POPPLER_HAS_GLOBALPARAMSINITER)
