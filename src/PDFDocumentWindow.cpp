@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -186,7 +186,7 @@ void PDFDocumentWindow::init()
 
 	connect(actionNew, &QAction::triggered, TWApp::instance(), &TWApp::newFile);
 	connect(actionNew_from_Template, &QAction::triggered, TWApp::instance(), &TWApp::newFromTemplate);
-	connect(actionOpen, &QAction::triggered, TWApp::instance(), &TWApp::open);
+	connect(actionOpen, &QAction::triggered, []() { TWApp::instance()->open(TWUtils::chooseDefaultFilter(QStringLiteral("a.pdf"), *TWUtils::filterList())); });
 	connect(actionPrintPdf, &QAction::triggered, this, &PDFDocumentWindow::print);
 
 	connect(actionQuit_TeXworks, &QAction::triggered, TWApp::instance(), &TWApp::maybeQuit);
@@ -978,10 +978,11 @@ void PDFDocumentWindow::searchResultHighlighted(const int pageNum, const QList<Q
 		// coordinates (i.e., (0,0) in the upper left). Hence we need to convert
 		// the coordinates
 		QList<QPolygonF> region;
-		foreach (QPolygonF pdfPolygon, pdfRegion) {
+		foreach (const QPolygonF & pdfPolygon, pdfRegion) {
 			QPolygonF polygon;
-			foreach (QPointF p, pdfPolygon)
+			foreach (const QPointF & p, pdfPolygon) {
 				polygon << QPointF(p.x(), page->pageSizeF().height() - p.y());
+			}
 			region << polygon;
 		}
 
@@ -1025,7 +1026,7 @@ void PDFDocumentWindow::maybeOpenUrl(const QUrl & url)
 	// Opening URLs could be a security risk, so ask the user (but make "yes,
 	// proceed the default option - after all the user typically clicked on the
 	// link deliberately)
-	if (QMessageBox::question(this, tr("Open URL"), tr("You are in the process of opening the URL %1. Opening unknown or untrusted web adresses can be a security risk.\nDo you want to continue?").arg(url.toString()),
+	if (QMessageBox::question(this, tr("Open URL"), tr("You are in the process of opening the URL %1. Opening unknown or untrusted web addresses can be a security risk.\nDo you want to continue?").arg(url.toString()),
 	                          QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes)
 		QDesktopServices::openUrl(url);
 }

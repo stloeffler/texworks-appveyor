@@ -61,7 +61,7 @@ class CopyrightedFile:
         for log in logs:
             log = log[1:-1]
             commit, timestamp_str, msg = log.split(' ', 2)
-            if msg in ['Update copyrights', 'Update copyright notices', 'Update copyright statements', 'Updated copyright information', 'Update copyright and add Charlie to list of authors', 'Update URLs to http://www.tug.org/texworks/', 'update copyright to 2010']: continue
+            if msg in ['Update copyright', 'Update copyrights', 'Update copyright notices', 'Update copyright statements', 'Updated copyright information', 'Update copyright and add Charlie to list of authors', 'Update URLs to http://www.tug.org/texworks/', 'update copyright to 2010']: continue
             self.log = (commit, timestamp_str, msg)
             break
 #        print(logs)
@@ -129,7 +129,7 @@ def manual_update_notice():
     """Reminder for places where the copyright information must be updated manually"""
     print("")
     print("Don't forget to manually update the copyright information in the following files:")
-    for f in ["README.md", "res/texworks.appdata.xml", "res/TeXworks.plist.in", "CMake/Modules/COPYING-CMAKE-MODULES", "res/texworks.1", "res/TeXworks.rc", "src/main.cpp", "src/TWApp.cpp", ".github/actions/package-launchpad/launchpad/debian/copyright", ".github/actions/package-windows/README.win"]:
+    for f in ["README.md", "res/texworks.appdata.xml", "res/TeXworks.plist.in", "res/texworks.1", "res/TeXworks.rc", "src/main.cpp", "src/TWApp.cpp", ".github/actions/package-launchpad/launchpad/debian/copyright", "win32/README.win", "CMake/Modules/COPYING-CMAKE-MODULES"]:
     	print("   {0}".format(f))
 
 def main():

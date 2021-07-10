@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2020  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2021  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -35,7 +35,7 @@ public:
     m_backendInterfaces.push_back(std::unique_ptr<BackendInterface>(new PopplerQtBackend));
 #endif
 #ifdef USE_MUPDF
-    m_backendInterfaces.push_back(std::unique_ptr<BackendInterface>(new MuPDFBackend)));
+    m_backendInterfaces.push_back(std::unique_ptr<BackendInterface>(new MuPDFBackend));
 #endif
   }
   BackendInterface * backend(const QString & name = {})
@@ -95,7 +95,8 @@ QDateTime fromPDFDate(QString pdfDate)
   QTime time;
   QString format;
   int sign{0};
-  int hourOffset{0}, minuteOffset{0};
+  // QDateTime::addSecs() uses qint64, so use that type from the start
+  qint64 hourOffset{0}, minuteOffset{0};
   bool ok{false};
 
   // "D:" prefix is strongly recommended, but optional; we don't need it here

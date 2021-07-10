@@ -1,7 +1,9 @@
 name: CD
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+  schedule:
+    - cron: '42 2 1 * *'
 
 jobs:
   ubuntu:
@@ -31,8 +33,8 @@ jobs:
 
 ################################################################################
 
-  win-bintray:
-    name: Windows (Bintray)
+  win:
+    name: Windows
     runs-on: windows-latest
 
     steps:
@@ -47,9 +49,11 @@ jobs:
 
     - name: Configure
       shell: wsl-bash {0}
+      # ../release is where Inno Setup looks for distribution files
       run: |
         mkdir build && cd build
         /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-cmake -DTW_BUILD_ID='github' .. \
+          -DCMAKE_INSTALL_PREFIX="../release" \
           -DPLATFORM_DEPENDENCIES='freetype;harfbuzz;freetype_too;bz2;iphlpapi;ssl;crypto;crypt32;ws2_32' \
           -DPoppler_ADDITIONAL_DEPENDENCIES='freetype;harfbuzz;freetype_too;glib-2.0;intl;iconv;ws2_32;winmm;tiff;webp;jpeg;openjp2;png;lcms2;lzma;bz2;pcre16;wtsapi32' \
           -DTEXWORKS_ADDITIONAL_LIBS='freetype;harfbuzz;freetype_too;bz2;wtsapi32;opengl32;imm32;shlwapi;dwmapi;uxtheme' \
@@ -57,20 +61,12 @@ jobs:
 
     - name: Build
       shell: wsl-bash {0}
-      run: make VERBOSE=1
+      run: make VERBOSE=1 && make VERBOSE=1 install
       working-directory: build
-
-    - name: Package
-      uses: ./.github/actions/package-windows
-      id: package
 
     - name: Prepare testing
       shell: wsl-bash {0}
       run: |
-        echo "::group::Copy fonts"
-        mkdir -p build/share
-        cp -r win32/fonts build/share
-        echo "::endgroup::"
         echo "::group::Fixup CTest files"
         SRC=$(pwd)
         DST=$(echo "${{ github.workspace }}" | tr '\\' '/')
@@ -87,60 +83,84 @@ jobs:
       env:
         QT_FORCE_STDERR_LOGGING: 1
 
-    - name: Deploy to Bintray
+    - name: Package
+      uses: ./.github/actions/package-windows
+      id: package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: TeXworks-Windows
+        path: ${{ steps.package.outputs.file }}
+
+    - name: Build installer
+      run: ISCC texworks-setup-script.iss
+      working-directory: win32
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: TeXworks-Windows-Setup
+        path: win32/Output/*.exe
+
+    - name: Deploy to Artifactory
       if: github.event_name == 'push'
-      uses: ./.github/actions/deploy-bintray
+      uses: ./.github/actions/deploy-artifactory
       with:
           file: ${{ steps.package.outputs.file }}
-          subject: texworks
-          repo: Windows-latest
-          pkg: TeXworks-for-Windows:latest
-          version: ${{ steps.package.outputs.version }}
-          username: stloeffler
-          key: ${{ secrets.bintray_key }}
+          baseurl: https://texworks.jfrog.io
+          repo: windows-latest
+          remotePath: ${{ steps.package.outputs.version }}
+          username: st.loeffler@gmail.com
+          key: ${{ secrets.jfrog_key }}
 
 ################################################################################
 
-  macosx-bintray:
-    name: Mac OS X (Bintray)
+  macosx:
+    name: Mac OS X
     runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 10.14
 
     steps:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+      with:
+        modules: qtscript
+
     - name: Install Dependencies
-      run: |
-        # Temporary fix for https://github.com/actions/virtual-environments/issues/1811
-        brew untap local/homebrew-openssl
-        brew untap local/homebrew-python2
-        # End of fix
-        brew update > brew_update.log || { echo "::error::Updating homebrew failed"; cat brew_update.log; exit 1; }
-        brew install hunspell poppler lua qt5
+      uses: ./.github/actions/setup-macos
 
     - name: Configure
-      run: cmake -B build -DTW_BUILD_ID='github' ${GITHUB_WORKSPACE} -DCMAKE_PREFIX_PATH="/usr/local/opt/qt5"
+      run: cmake -B build -DTW_BUILD_ID='github' ${GITHUB_WORKSPACE} -DCMAKE_PREFIX_PATH="${RUNNER_WORKSPACE}/tw-deps" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE
 
     - name: Build
-      run: make -j
-      working-directory: build
+      run: cmake --build build -j
 
     - name: Test
-      run: QT_QPA_PLATFORM_PLUGIN_PATH="${Qt5_DIR}/plugins/platforms" ctest -V
+      run: ctest -V
       working-directory: build
 
     - name: Package
       id: package
       uses: ./.github/actions/package-macos
 
-    - name: Deploy to Bintray
-      if: github.event_name == 'push'
-      uses: ./.github/actions/deploy-bintray
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
       with:
-        file: build/${{ steps.package.outputs.file }}
-        subject: texworks
-        repo: OSX-latest
-        pkg: TeXworks-for-Mac:latest
-        version: ${{ steps.package.outputs.version }}
-        username: stloeffler
-        key: ${{ secrets.bintray_key }}
+        name: TeXworks-macOS
+        path: ${{ steps.package.outputs.file }}
+
+    - name: Deploy to Artifactory
+      if: github.event_name == 'push'
+      uses: ./.github/actions/deploy-artifactory
+      with:
+        file: ${{ steps.package.outputs.file }}
+        baseurl: https://texworks.jfrog.io
+        repo: macos-latest
+        remotePath: ${{ steps.package.outputs.version }}
+        username: st.loeffler@gmail.com
+        key: ${{ secrets.jfrog_key }}

@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2020  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -228,7 +228,7 @@ void TWApp::init()
 	actionOpen = new QAction(tr("Open..."), this);
 	actionOpen->setIcon(QIcon::fromTheme(QStringLiteral("document-open")));
 	menuFile->addAction(actionOpen);
-	connect(actionOpen, &QAction::triggered, this, &TWApp::open);
+	connect(actionOpen, &QAction::triggered, [=]() { this->open(); });
 
 	menuRecent = new QMenu(tr("Open Recent"));
 	actionClear_Recent_Files = menuRecent->addAction(tr("Clear Recent Files"));
@@ -345,7 +345,7 @@ void TWApp::about()
 {
 	QString aboutText = tr("<p>%1 is a simple environment for editing, typesetting, and previewing TeX documents.</p>").arg(QString::fromLatin1(TEXWORKS_NAME));
 	aboutText += QLatin1String("<small>");
-	aboutText += QLatin1String("<p>&#xA9; 2007-2020  Jonathan Kew, Stefan L&#xF6;ffler, Charlie Sharpsteen");
+	aboutText += QLatin1String("<p>&#xA9; 2007-2021  Jonathan Kew, Stefan L&#xF6;ffler, Charlie Sharpsteen");
 	if (Tw::Utils::VersionInfo::isGitInfoAvailable())
 		aboutText += tr("<br>Version %1 (%2) [r.%3, %4]").arg(Tw::Utils::VersionInfo::versionString(), Tw::Utils::VersionInfo::buildIdString(), Tw::Utils::VersionInfo::gitCommitHash(), QLocale::system().toString(Tw::Utils::VersionInfo::gitCommitDate().toLocalTime(), QLocale::ShortFormat));
 	else
@@ -715,10 +715,10 @@ QString TWApp::getOpenFileName(QString selectedFilter)
 	                                    filters.join(QLatin1String(";;")), &selectedFilter, options);
 }
 
-void TWApp::open()
+void TWApp::open(const QString & defaultFilter /* = {} */)
 {
 	Tw::Settings settings;
-	QStringList files = getOpenFileNames();
+	QStringList files = getOpenFileNames(defaultFilter);
 	foreach (QString fileName, files) {
 		if (!fileName.isEmpty()) {
 			QFileInfo info(fileName);

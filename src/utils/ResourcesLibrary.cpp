@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2020  Stefan Löffler
+	Copyright (C) 2020-2021  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -25,7 +25,9 @@
 #include "utils/FileVersionDatabase.h"
 #include "utils/VersionInfo.h"
 
+#include <QDebug>
 #include <QDirIterator>
+#include <QStandardPaths>
 
 namespace Tw {
 
@@ -43,15 +45,88 @@ QString ResourcesLibrary::m_portableLibPath;
 #endif
 
 // static
+const QString ResourcesLibrary::getLibraryRootPath()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+	return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+#else
+	return QStandardPaths::writableLocation(QStandardPaths::DataLocation);
+#endif
+}
+
+// the return value is sorted from new to old
+const QStringList ResourcesLibrary::getLegacyLibraryRootPaths()
+{
+	QStringList retVal;
+#if defined(Q_OS_DARWIN)
+	retVal << QDir::homePath() + QLatin1String("/Library/" TEXWORKS_NAME "/");
+#elif defined(Q_OS_UNIX) // && !defined(Q_OS_DARWIN)
+	retVal << QDir::homePath() + QLatin1String("/." TEXWORKS_NAME "/");
+#else // defined(Q_OS_WIN)
+	retVal << QDir::homePath() + QLatin1String("/" TEXWORKS_NAME "/");
+#endif
+	return retVal;
+}
+
+// static
+bool ResourcesLibrary::shouldMigrateLegacyLibrary()
+{
+	// We don't migrate old (system) libraries in portable mode
+	if (!getPortableLibPath().isEmpty()) {
+		return false;
+	}
+	const QString dst = getLibraryRootPath();
+	// We don't migrate if the destination exists already
+	if (QDir(dst).exists()) {
+		return false;
+	}
+	for (const QString & src : getLegacyLibraryRootPaths()) {
+		if (QDir(src).exists()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// static
+void ResourcesLibrary::migrateLegacyLibrary()
+{
+	const QDir dst(getLibraryRootPath());
+
+	for (const QString & srcPath : getLegacyLibraryRootPaths()) {
+		QDir src(srcPath);
+		if (src.exists()) {
+			qDebug() << "Migrating resources library from" << src.absolutePath() << "to" << dst.absolutePath();
+			dst.mkpath(QStringLiteral("."));
+			QDirIterator it(src, QDirIterator::Subdirectories);
+			while (it.hasNext()) {
+				it.next();
+				const QFileInfo & srcFileInfo(it.fileInfo());
+				const QString relativePath(src.relativeFilePath(srcFileInfo.absoluteFilePath()));
+
+				if (srcFileInfo.isSymLink()) {
+					QFile::link(srcFileInfo.symLinkTarget(), dst.filePath(relativePath));
+				}
+				else if (srcFileInfo.isDir()) {
+					dst.mkpath(relativePath);
+				}
+				else {
+					QFile f(srcFileInfo.absoluteFilePath());
+					f.copy(dst.filePath(relativePath));
+				}
+			}
+		}
+	}
+}
+
+// static
 const QString ResourcesLibrary::getLibraryPath(const QString& subdir, const bool updateOnDisk /* = true */)
 {
 	QString libRootPath, libPath;
 
 	libRootPath = getPortableLibPath();
 	if (libRootPath.isEmpty()) {
-#if defined(Q_OS_DARWIN)
-		libRootPath = QDir::homePath() + QLatin1String("/Library/" TEXWORKS_NAME "/");
-#elif defined(Q_OS_UNIX) // && !defined(Q_OS_DARWIN)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
 		if (subdir == QLatin1String("dictionaries")) {
 			libPath = QString::fromLatin1(TW_DICPATH);
 			QString dicPath = QString::fromLocal8Bit(getenv("TW_DICPATH"));
@@ -59,10 +134,11 @@ const QString ResourcesLibrary::getLibraryPath(const QString& subdir, const bool
 				libPath = dicPath;
 			return libPath; // don't try to create/update the system dicts directory
 		}
-		libRootPath = QDir::homePath() + QLatin1String("/." TEXWORKS_NAME "/");
-#else // defined(Q_OS_WIN)
-		libRootPath = QDir::homePath() + QLatin1String("/" TEXWORKS_NAME "/");
 #endif
+		libRootPath = getLibraryRootPath();
+		if (shouldMigrateLegacyLibrary()) {
+			migrateLegacyLibrary();
+		}
 	}
 	libPath = QDir(libRootPath).absolutePath() + QStringLiteral("/") + subdir;
 

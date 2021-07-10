@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2019  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -194,7 +194,7 @@ public slots:
 	void doResourcesDialog() const;
 	QObject * newFile() const;
 	QObject * newFromTemplate() const;
-	void open();
+	void open(const QString & defaultFilter = {});
 	void stackWindows();
 	void tileWindows();
 

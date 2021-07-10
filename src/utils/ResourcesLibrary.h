@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2020  Stefan Löffler
+	Copyright (C) 2008-2021  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -42,6 +42,13 @@ public:
 
 	static QString getPortableLibPath() { return m_portableLibPath; }
 	static void setPortableLibPath(const QString & path) { m_portableLibPath = path; }
+
+private:
+	static const QString getLibraryRootPath();
+	// the return value is sorted from new to old
+	static const QStringList getLegacyLibraryRootPaths();
+	static bool shouldMigrateLegacyLibrary();
+	static void migrateLegacyLibrary();
 };
 
 } // namespace Utils

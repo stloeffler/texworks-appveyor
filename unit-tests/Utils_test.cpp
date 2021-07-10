@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2019  Stefan Löffler
+	Copyright (C) 2019-2021  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -82,6 +82,16 @@ public:
 	QList<shortcut_info> shortcuts() const { return _shortcuts; }
 };
 
+void TestUtils::initTestCase()
+{
+	QStandardPaths::setTestModeEnabled(true);
+}
+
+void TestUtils::cleanupTestCase()
+{
+	QStandardPaths::setTestModeEnabled(false);
+}
+
 void TestUtils::FileVersionDatabase_comparisons()
 {
 	Tw::Utils::FileVersionDatabase::Record r1 = {QFileInfo(QStringLiteral("base14-fonts.pdf")), QStringLiteral("v1"), QByteArray()};
@@ -158,13 +168,21 @@ void TestUtils::SystemCommand_wait()
 
 	QVERIFY(spy.isValid());
 
+#ifdef Q_OS_WINDOWS
+	cmd.start(QStringLiteral("cmd"), QStringList{QStringLiteral("/C"), QStringLiteral("echo OK")});
+#else
 	cmd.start(QStringLiteral("echo"), QStringList{QStringLiteral("OK")});
+#endif
 	QVERIFY(cmd.waitForStarted());
 	QVERIFY(cmd.waitForFinished());
 
 	spy.clear();
 
+#ifdef Q_OS_WINDOWS
+	cmd.start(QStringLiteral("cmd"), QStringList{QStringLiteral("/C"), QStringLiteral("echo OK")});
+#else
 	cmd.start(QStringLiteral("echo"), QStringList{QStringLiteral("OK")});
+#endif
 	QVERIFY(spy.wait());
 	QVERIFY(cmd.waitForStarted());
 	QVERIFY(cmd.waitForFinished());
@@ -178,9 +196,13 @@ void TestUtils::SystemCommand_getResult_data()
 	QTest::addColumn<bool>("runInBackground");
 	QTest::addColumn<bool>("success");
 	QTest::addColumn<QString>("output");
-
+#ifdef Q_OS_WINDOWS
+	QString progOK{QStringLiteral("cmd")};
+	QStringList progOKArgs{QStringLiteral("/C"), QStringLiteral("echo OK")};
+#else
 	QString progOK{QStringLiteral("echo")};
 	QStringList progOKArgs{QStringLiteral("OK")};
+#endif
 	QString progInvalid{QStringLiteral("invalid-command")};
 	QStringList progInvalidArgs{};
 	QString outputQuiet;
@@ -563,12 +585,10 @@ void TestUtils::ResourcesLibrary_getLibraryPath_data()
 	const QString sDicts(QStringLiteral("dictionaries"));
 	const QString sInvalid(QStringLiteral("does-not-exist"));
 
-#if defined(Q_OS_DARWIN)
-	QString stem = QDir::homePath() + QStringLiteral("/Library/TeXworks/");
-#elif defined(Q_OS_UNIX) // && !defined(Q_OS_DARWIN)
-	QString stem = QDir::homePath() + QStringLiteral("/.TeXworks/");
-#else // defined(Q_OS_WIN)
-	QString stem = QDir::homePath() + QStringLiteral("/TeXworks/");
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+	QString stem = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/");
+#else
+	QString stem = QStandardPaths::writableLocation(QStandardPaths::DataLocation) + QStringLiteral("/");
 #endif
 
 	QTest::newRow("root") << QString() << QString() << stem;

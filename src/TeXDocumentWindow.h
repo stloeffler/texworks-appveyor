@@ -22,6 +22,7 @@
 #ifndef TeXDocumentWindow_H
 #define TeXDocumentWindow_H
 
+#include "DefaultPrefs.h"
 #include "FindDialog.h"
 #include "TWScriptableWindow.h"
 #include "document/SpellChecker.h"
@@ -107,10 +108,13 @@ public:
 	PDFDocumentWindow* pdfDocument()
 		{ return pdfDoc; }
 
+	void goToLine(int lineNo, int selStart = -1, int selEnd = -1);
 	void goToTag(int index);
 
 	bool isModified() const { return textEdit->document()->isModified(); }
 	void setModified(const bool m = true) { textEdit->document()->setModified(m); }
+
+	qreal lineSpacing() const { return m_lineSpacing; }
 
 	Q_PROPERTY(int cursorPosition READ cursorPosition STORED false)
 	Q_PROPERTY(QString selection READ selectedText STORED false)
@@ -236,14 +240,13 @@ private:
 	bool openPdfIfAvailable(bool show);
 	void replaceSelection(const QString& newText);
 	void doHardWrap(int mode, int lineWidth, bool rewrap);
-	QTextCursor doSearch(QTextDocument *theDoc, const QString& searchText, const QRegularExpression *regex,
+	QTextCursor doSearch(const QString& searchText, const QRegularExpression *regex,
 						 QTextDocument::FindFlags flags, int rangeStart, int rangeEnd);
 	int doReplaceAll(const QString& searchText, QRegularExpression* regex, const QString& replacement,
 						QTextDocument::FindFlags flags, int rangeStart = -1, int rangeEnd = -1);
 	void executeAfterTypesetHooks();
 	void showConsole();
 	void hideConsole();
-	void goToLine(int lineNo, int selStart = -1, int selEnd = -1);
 	void updateTypesettingAction();
 	void findRootFilePath();
 	const QString& getRootFilePath();
@@ -254,7 +257,7 @@ private:
 
 	QString selectedText() { return textCursor().selectedText().replace(QChar(QChar::ParagraphSeparator), QChar::fromLatin1('\n')); }
 	QString consoleText() { return textEdit_console->toPlainText(); }
-	QString text() { return textEdit->toPlainText(); }
+	QString text() { return textEdit->text(); }
 
 	Tw::Document::TeXDocument * _texDoc;
 	PDFDocumentWindow * pdfDoc{nullptr};
@@ -267,6 +270,7 @@ private:
 	int lineEndings{kLineEnd_LF};
 	QString rootFilePath;
 	QDateTime lastModified;
+	qreal m_lineSpacing{kDefault_LineSpacing};
 
 	Tw::UI::ClickableLabel * lineNumberLabel{nullptr};
 	Tw::UI::ClickableLabel * encodingLabel{nullptr};

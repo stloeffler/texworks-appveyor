@@ -215,6 +215,7 @@ target_compile_options(TeXworks PRIVATE ${WARNING_OPTIONS})
 target_add_qt_translations(TeXworks
   TS_FILES ${TEXWORKS_TRANS_TS}
   QM_FILES ${QT_TRANS_QM}
+  INCLUDEPATH "../src/"
 )
 
 get_target_property(lupdatePath Qt${QT_VERSION_MAJOR}::lupdate LOCATION)
@@ -222,8 +223,9 @@ get_target_property(_sources TeXworks SOURCES)
 add_custom_target(${PROJECT_NAME}_UpdateTranslations COMMAND "${CMAKE_COMMAND}"
   "-DOUTPUTFILE=\"${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro\""
   "-DPROJECT_NAME=\"${PROJECT_NAME}\""
-  "-DQt5_LUPDATE_EXECUTABLE=\"${lupdatePath}\""
+  "-DQt_LUPDATE_EXECUTABLE=\"${lupdatePath}\""
   "-DFILES=\"${_sources};${TEXWORKS_TRANS_TS}\""
+  "-DINCLUDEPATH=\"../src/\""
   -P "${PROJECT_SOURCE_DIR}/modules/QtPDF/CMake/Modules/UpdateTranslations.cmake"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 if (NOT TARGET UpdateTranslations)
@@ -241,7 +243,12 @@ target_LINK_LIBRARIES(TeXworks QtPDF::qtpdf ${TeXworks_LIBS} )
 
 # Disallow automatic casts from char* to QString (enforcing the use of tr() or
 # explicitly specifying the string encoding)
-target_compile_definitions(TeXworks PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_BYTEARRAY QT_STRICT_ITERATORS)
+target_compile_definitions(TeXworks PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_BYTEARRAY)
+if (NOT MSVC)
+	# Set QT_STRICT_ITERATORS everywhere except for MSVC (QTBUG-78112)
+	target_compile_definitions(TeXworks PRIVATE QT_STRICT_ITERATORS)
+endif (NOT MSVC)
+
 target_compile_definitions(TeXworks PRIVATE TW_BUILD_ID="${TW_BUILD_ID}")
 
 function (target_add_path_define target name path)
