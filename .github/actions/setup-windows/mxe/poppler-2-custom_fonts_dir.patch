@@ -28,7 +28,7 @@ index 1111111..2222222 100644
 +  if (beenhere)
 +    return retval;
 +
-+  if (!GetModuleFileName (hmodule, (CHAR *) retval, sizeof(retval) - 20))
++  if (!GetModuleFileName (NULL, (CHAR *) retval, sizeof(retval) - 20))
 +    return POPPLER_DATADIR;
 +
 +  p = _mbsrchr ((unsigned char *) retval, '\\');
