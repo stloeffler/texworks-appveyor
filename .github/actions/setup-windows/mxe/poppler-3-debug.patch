@@ -1,5 +1,5 @@
 diff --git a/poppler/GlobalParams.cc b/poppler/GlobalParams.cc
-index 01975901..4b7c0b72 100644
+index 01975901..a642d30e 100644
 --- a/poppler/GlobalParams.cc
 +++ b/poppler/GlobalParams.cc
 @@ -98,6 +98,18 @@
@@ -21,7 +21,7 @@ index 01975901..4b7c0b72 100644
  #if defined(ENABLE_RELOCATABLE) && defined(_WIN32)
  
  /* search for data relative to where we are installed */
-@@ -127,6 +139,8 @@ static const char *get_poppler_datadir(void)
+@@ -127,10 +139,12 @@ static const char *get_poppler_datadir(void)
  
      unsigned char *p;
  
@@ -30,6 +30,11 @@ index 01975901..4b7c0b72 100644
      if (beenhere)
          return retval;
  
+-    if (!GetModuleFileNameA(hmodule, (CHAR *)retval, sizeof(retval) - 20))
++    if (!GetModuleFileNameA(NULL, (CHAR *)retval, sizeof(retval) - 20))
+         return POPPLER_DATADIR;
+ 
+     p = _mbsrchr((unsigned char *)retval, '\\');
 @@ -143,6 +157,7 @@ static const char *get_poppler_datadir(void)
      strcat(retval, "\\share\\poppler");
  
