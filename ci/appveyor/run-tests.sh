@@ -2,4 +2,6 @@
 
 cd "${APPVEYOR_BUILD_FOLDER}/build"
 
-ctest -V
+objdump -x test_poppler-qt5.exe
+
+ctest -VV --output-on-failure
