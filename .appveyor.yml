@@ -12,10 +12,10 @@ environment:
   matrix:
     - MSYSTEM: MINGW64
       BASH_PATH: C:\msys64\usr\bin\bash
-      QT5: C:\Qt\5.15\mingw81_64
+#      QT5: C:\Qt\5.15\mingw81_64
 
+#  - set Path=%QT5%\bin;%Path%
 install:
-  - set Path=%QT5%\bin;%Path%
   - cmd: '%BASH_PATH% -lc "$APPVEYOR_BUILD_FOLDER/ci/appveyor/get-dependencies.sh"'
 
 before_build:
