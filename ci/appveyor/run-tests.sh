@@ -7,6 +7,6 @@ cd "${APPVEYOR_BUILD_FOLDER}/build"
 pwd
 ls
 echo "$PATH"
-test_poppler-qt5.exe
+./test_poppler-qt5.exe
 
 ctest -VV --output-on-failure
