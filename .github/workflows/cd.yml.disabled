@@ -43,17 +43,18 @@ jobs:
 
     - name: Setup WSL
       uses: Vampire/setup-wsl@v1
+      with:
+        distribution: Ubuntu-20.04
 
     - name: Install dependencies
       uses: ./.github/actions/setup-windows
 
     - name: Configure
       shell: wsl-bash {0}
-      # ../release is where Inno Setup looks for distribution files
+      # ./release is where Inno Setup looks for distribution files
       run: |
-        mkdir build && cd build
-        /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-cmake -DTW_BUILD_ID='github' .. \
-          -DCMAKE_INSTALL_PREFIX="../release" \
+        /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-cmake -B build -DTW_BUILD_ID='github' \
+          -DCMAKE_INSTALL_PREFIX="./release" \
           -DPLATFORM_DEPENDENCIES='freetype;harfbuzz;freetype_too;bz2;iphlpapi;ssl;crypto;crypt32;ws2_32' \
           -DPoppler_ADDITIONAL_DEPENDENCIES='freetype;harfbuzz;freetype_too;glib-2.0;intl;iconv;ws2_32;winmm;tiff;webp;jpeg;openjp2;png;lcms2;lzma;bz2;pcre16;wtsapi32' \
           -DTEXWORKS_ADDITIONAL_LIBS='freetype;harfbuzz;freetype_too;bz2;wtsapi32;opengl32;imm32;shlwapi;dwmapi;uxtheme' \
@@ -61,8 +62,7 @@ jobs:
 
     - name: Build
       shell: wsl-bash {0}
-      run: make VERBOSE=1 && make VERBOSE=1 install
-      working-directory: build
+      run: /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-cmake --build build -v && /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-cmake --install build -v
 
     - name: Prepare testing
       shell: wsl-bash {0}
@@ -103,16 +103,16 @@ jobs:
         name: TeXworks-Windows-Setup
         path: win32/Output/*.exe
 
-    - name: Deploy to Artifactory
-      if: github.event_name == 'push'
-      uses: ./.github/actions/deploy-artifactory
-      with:
-          file: ${{ steps.package.outputs.file }}
-          baseurl: https://texworks.jfrog.io
-          repo: windows-latest
-          remotePath: ${{ steps.package.outputs.version }}
-          username: st.loeffler@gmail.com
-          key: ${{ secrets.jfrog_key }}
+#    - name: Deploy to Artifactory
+#      if: github.event_name == 'push'
+#      uses: ./.github/actions/deploy-artifactory
+#      with:
+#          file: ${{ steps.package.outputs.file }}
+#          baseurl: https://texworks.jfrog.io
+#          repo: windows-latest
+#          remotePath: ${{ steps.package.outputs.version }}
+#          username: st.loeffler@gmail.com
+#          key: ${{ secrets.jfrog_key }}
 
 ################################################################################
 
@@ -120,7 +120,10 @@ jobs:
     name: Mac OS X
     runs-on: macos-latest
     env:
-      MACOSX_DEPLOYMENT_TARGET: 10.14
+      # Qt 5.15.2 supports macOS >= 10.13 [https://doc.qt.io/qt-5/macos.html]
+      # poppler >= 22.01.0 uses std::filesystem, which seems to only be (fully)
+      # supported on macOS 10.15 and up
+      MACOSX_DEPLOYMENT_TARGET: 10.15
 
     steps:
     - name: Checkout
@@ -129,13 +132,33 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v2
       with:
+        # Latest Qt5 release [https://download.qt.io/official_releases/qt/]
+        version: 5.15.2
         modules: qtscript
 
-    - name: Install Dependencies
-      uses: ./.github/actions/setup-macos
+    - name: Install Homebrew dependencies
+      shell: bash
+      run: |
+        brew update > brew_update.log || { echo "::error::Updating homebrew failed"; cat brew_update.log; exit 1; }
+        brew uninstall --ignore-dependencies brotli fontconfig freetype libjpeg libpng libtiff webp zstd
+        brew install automake libtool pkg-config
+
+    - name: Cache dependencies
+      id: cache-dependencies
+      uses: actions/cache@v2
+      with:
+        key: twdeps-${{ runner.os }}-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('./.github/actions/setup-macos/*') }}
+        path: ${{ runner.temp }}/tw-deps
+
+    - name: Build dependencies
+      if: steps.cache-dependencies.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cmake -S ".github/actions/setup-macos" -B ".github/actions/setup-macos/build" -DCMAKE_INSTALL_PREFIX=${RUNNER_TEMP}/tw-deps
+        PKG_CONFIG_PATH=${RUNNER_TEMP}/tw-deps/lib/pkgconfig cmake --build ".github/actions/setup-macos/build" -v
 
     - name: Configure
-      run: cmake -B build -DTW_BUILD_ID='github' ${GITHUB_WORKSPACE} -DCMAKE_PREFIX_PATH="${RUNNER_WORKSPACE}/tw-deps" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE
+      run: cmake -B build -DTW_BUILD_ID='github' ${GITHUB_WORKSPACE} -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/tw-deps" -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE
 
     - name: Build
       run: cmake --build build -j
@@ -154,13 +177,13 @@ jobs:
         name: TeXworks-macOS
         path: ${{ steps.package.outputs.file }}
 
-    - name: Deploy to Artifactory
-      if: github.event_name == 'push'
-      uses: ./.github/actions/deploy-artifactory
-      with:
-        file: ${{ steps.package.outputs.file }}
-        baseurl: https://texworks.jfrog.io
-        repo: macos-latest
-        remotePath: ${{ steps.package.outputs.version }}
-        username: st.loeffler@gmail.com
-        key: ${{ secrets.jfrog_key }}
+#    - name: Deploy to Artifactory
+#      if: github.event_name == 'push'
+#      uses: ./.github/actions/deploy-artifactory
+#      with:
+#        file: ${{ steps.package.outputs.file }}
+#        baseurl: https://texworks.jfrog.io
+#        repo: macos-latest
+#        remotePath: ${{ steps.package.outputs.version }}
+#        username: st.loeffler@gmail.com
+#        key: ${{ secrets.jfrog_key }}
