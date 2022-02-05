@@ -22,7 +22,6 @@
 #include "TeXDocumentWindow.h"
 
 #include "CitationSelectDialog.h"
-#include "ConfirmDelete.h"
 #include "DefaultPrefs.h"
 #include "Engine.h"
 #include "FindDialog.h"
@@ -36,6 +35,7 @@
 #include "TemplateDialog.h"
 #include "scripting/ScriptAPI.h"
 #include "ui/ClickableLabel.h"
+#include "ui/RemoveAuxFilesDialog.h"
 
 #include <QAbstractButton>
 #include <QAbstractItemView>
@@ -225,6 +225,11 @@ void TeXDocumentWindow::init()
 
 	connect(TWApp::instance(), &TWApp::hideFloatersExcept, this, &TeXDocumentWindow::hideFloatersUnlessThis);
 	connect(this, &TeXDocumentWindow::activatedWindow, TWApp::instance(), &TWApp::activatedWindow);
+
+	connect(&(TWApp::instance()->typesetManager()), &Tw::Utils::TypesetManager::typesettingStarted, this, &TeXDocumentWindow::updateTypesettingAction);
+	connect(&(TWApp::instance()->typesetManager()), &Tw::Utils::TypesetManager::typesettingStopped, this, &TeXDocumentWindow::updateTypesettingAction);
+	connect(&(TWApp::instance()->typesetManager()), &Tw::Utils::TypesetManager::typesettingStarted, this, &TeXDocumentWindow::conditionallyEnableRemoveAuxFiles);
+	connect(&(TWApp::instance()->typesetManager()), &Tw::Utils::TypesetManager::typesettingStopped, this, &TeXDocumentWindow::conditionallyEnableRemoveAuxFiles);
 
 	connect(actionStack, &QAction::triggered, TWApp::instance(), &TWApp::stackWindows);
 	connect(actionTile, &QAction::triggered, TWApp::instance(), &TWApp::tileWindows);
@@ -601,7 +606,7 @@ void TeXDocumentWindow::newFromTemplate()
 void TeXDocumentWindow::makeUntitled()
 {
 	setCurrentFile({});
-	actionRemove_Aux_Files->setEnabled(false);
+	conditionallyEnableRemoveAuxFiles();
 }
 
 void TeXDocumentWindow::open()
@@ -1527,7 +1532,7 @@ void TeXDocumentWindow::setCurrentFile(const QFileInfo & fileInfo)
 	//: Format for the window title (ex. "file.tex[*] - TeXworks")
 	setWindowTitle(tr("%1[*] - %2").arg(textDoc()->getFileInfo().fileName(), tr(TEXWORKS_NAME)));
 
-	actionRemove_Aux_Files->setEnabled(!untitled());
+	conditionallyEnableRemoveAuxFiles();
 
 	TWApp::instance()->updateWindowMenus();
 }
@@ -2740,6 +2745,14 @@ void TeXDocumentWindow::typeset()
 		return;
 	}
 
+	if (!TWApp::instance()->typesetManager().startTypesetting(fileInfo.canonicalFilePath(), this)) {
+		statusBar()->showMessage(tr("%1 is already being processed").arg(rootFilePath), kStatusMessageDuration);
+		updateTypesettingAction();
+		return;
+	}
+	// NB: TypesetManager::startTypesetting implicitly calls
+	// updateTypesettingAction() via signal-slot-connections
+
 	QString pdfName;
 	if (getPreviewFileName(pdfName))
 		oldPdfTime = QFileInfo(pdfName).lastModified();
@@ -2752,8 +2765,6 @@ void TeXDocumentWindow::typeset()
 		pdfDoc->widget()->setWatchForDocumentChangesOnDisk(false);
 
 	process = e.run(fileInfo, this);
-
-	updateTypesettingAction();
 
 	if (process) {
 		textEdit_console->clear();
@@ -2786,6 +2797,8 @@ void TeXDocumentWindow::typeset()
 		if (pdfDoc && pdfDoc->widget())
 			pdfDoc->widget()->setWatchForDocumentChangesOnDisk(true);
 
+		TWApp::instance()->typesetManager().stopTypesetting(this);
+
 		QMessageBox msgBox(QMessageBox::Critical, tr("Unable to execute %1").arg(e.name()),
 		                      QLatin1String("<p>") + tr("The program \"%1\" was not found.").arg(e.program()) + QLatin1String("</p>") +
 #if defined(Q_OS_WIN)
@@ -2814,27 +2827,69 @@ void TeXDocumentWindow::interrupt()
 		// Start watching for changes in the pdf (again)
 		if (pdfDoc && pdfDoc->widget())
 			pdfDoc->widget()->setWatchForDocumentChangesOnDisk(true);
+
+		// Don't notify the TypesetManager that typesetting was stopped; this is
+		// delegated to processError() which will be called after process->kill()
+		// and which takes care of resetting the process before notifying the
+		// TypesetManager. This ensures that subsequent calls to isTypesetting()
+		// return the correct value
+	}
+}
+
+void TeXDocumentWindow::goToTypesettingWindow()
+{
+	TeXDocumentWindow * owner = qobject_cast<TeXDocumentWindow*>(TWApp::instance()->typesetManager().getOwnerForRootFile(getRootFilePath()));
+	if (owner) {
+		owner->raise();
+		owner->activateWindow();
 	}
 }
 
 void TeXDocumentWindow::updateTypesettingAction()
 {
-	if (!process) {
-		disconnect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::interrupt);
-		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("process-start")));
-		actionTypeset->setText(tr("Typeset"));
-		connect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::typeset);
-		if (pdfDoc)
-			pdfDoc->updateTypesettingAction(false);
-	}
-	else {
-		disconnect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::typeset);
+	TeXDocumentWindow * owner = qobject_cast<TeXDocumentWindow*>(TWApp::instance()->typesetManager().getOwnerForRootFile(getRootFilePath()));
+
+	disconnect(actionTypeset, &QAction::triggered, this, nullptr);
+	if (isTypesetting()) {
+		// We are currently running a typesetting process
+		// The button should allow the user to stop it
 		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("process-stop")));
 		actionTypeset->setText(tr("Abort typesetting"));
 		connect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::interrupt);
-		if (pdfDoc)
-			pdfDoc->updateTypesettingAction(true);
 	}
+	else if (owner != nullptr) {
+		// Someone else is typesetting "our" (root) document
+		// The button should take the user to the window from which the process
+		// was run
+		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("go-jump")));
+		actionTypeset->setText(tr("Go to typesetting"));
+		connect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::goToTypesettingWindow);
+	}
+	else {
+		// No process is currently running (for "our" root document)
+		// The button should allow the user to start one
+		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("process-start")));
+		actionTypeset->setText(tr("Typeset"));
+		connect(actionTypeset, &QAction::triggered, this, &TeXDocumentWindow::typeset);
+	}
+}
+
+void TeXDocumentWindow::conditionallyEnableRemoveAuxFiles()
+{
+	// In the following cases, we want to disable "Remove Aux Files"
+	// 1) There cannot be any aux files (as there is no root file; i.e., the
+	//    file has never been saved)
+	// 2) A typesetting process is running for "our" root file which may be
+	//    accessing the aux files
+	const bool enable = [&](){
+		QFileInfo rootFileInfo{getRootFilePath()};
+		if (!rootFileInfo.exists())
+			return false;
+		if (TWApp::instance()->typesetManager().isFileBeingTypeset(rootFileInfo.canonicalFilePath()))
+			return false;
+		return true;
+	}();
+	actionRemove_Aux_Files->setEnabled(enable);
 }
 
 void TeXDocumentWindow::processStandardOutput()
@@ -2857,11 +2912,12 @@ void TeXDocumentWindow::processError(QProcess::ProcessError /*error*/)
 	process->deleteLater();
 	process = nullptr;
 	inputLine->hide();
-	updateTypesettingAction();
 
 	// Start watching for changes in the pdf (again)
 	if (pdfDoc && pdfDoc->widget())
 		pdfDoc->widget()->setWatchForDocumentChangesOnDisk(true);
+
+	TWApp::instance()->typesetManager().stopTypesetting(this);
 }
 
 void TeXDocumentWindow::processFinished(int exitCode, QProcess::ExitStatus exitStatus)
@@ -2923,7 +2979,8 @@ void TeXDocumentWindow::processFinished(int exitCode, QProcess::ExitStatus exitS
 	if (process)
 		process->deleteLater();
 	process = nullptr;
-	updateTypesettingAction();
+
+	TWApp::instance()->typesetManager().stopTypesetting(this);
 }
 
 void TeXDocumentWindow::executeAfterTypesetHooks()
@@ -3120,6 +3177,11 @@ void TeXDocumentWindow::goToTag(int index)
 	}
 }
 
+bool TeXDocumentWindow::isTypesetting() const
+{
+	return (process != nullptr || TWApp::instance()->typesetManager().getOwnerForRootFile(rootFilePath) == this);
+}
+
 void TeXDocumentWindow::removeAuxFiles()
 {
 	findRootFilePath();
@@ -3139,7 +3201,7 @@ void TeXDocumentWindow::removeAuxFiles()
 	dir.setNameFilters(filterList);
 	QStringList auxFileList = dir.entryList(QDir::Files | QDir::CaseSensitive, QDir::Name);
 	if (auxFileList.count() > 0)
-		ConfirmDelete::doConfirmDelete(dir, auxFileList);
+		Tw::UI::RemoveAuxFilesDialog::doConfirmDelete(dir, auxFileList);
 	else
 		(void)QMessageBox::information(this, tr("No files found"),
 									   tr("No auxiliary files associated with this document at the moment."));

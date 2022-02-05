@@ -12,7 +12,6 @@
 set(TEXWORKS_SRCS BibTeXFile.cpp
                   CitationSelectDialog.cpp
                   CompletingEdit.cpp
-                  ConfirmDelete.cpp
                   Engine.cpp
                   FindDialog.cpp
                   HardWrapDialog.cpp
@@ -42,6 +41,8 @@ set(TEXWORKS_SRCS BibTeXFile.cpp
                   ui/ClickableLabel.cpp
                   ui/ClosableTabWidget.cpp
                   ui/LineNumberWidget.cpp
+                  ui/ListSelectDialog.cpp
+                  ui/RemoveAuxFilesDialog.cpp
                   ui/ScreenCalibrationWidget.cpp
                   utils/CommandlineParser.cpp
                   utils/FileVersionDatabase.cpp
@@ -49,13 +50,13 @@ set(TEXWORKS_SRCS BibTeXFile.cpp
                   utils/ResourcesLibrary.cpp
                   utils/SystemCommand.cpp
                   utils/TextCodecs.cpp
+                  utils/TypesetManager.cpp
                   utils/VersionInfo.cpp
                   )
 
 set(TEXWORKS_HDRS BibTeXFile.h
                   CitationSelectDialog.h
                   CompletingEdit.h
-                  ConfirmDelete.h
                   DefaultBinaryPaths.h
                   DefaultPrefs.h
                   Engine.h
@@ -89,6 +90,8 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   ui/ClickableLabel.h
                   ui/ClosableTabWidget.h
                   ui/LineNumberWidget.h
+                  ui/ListSelectDialog.h
+                  ui/RemoveAuxFilesDialog.h
                   ui/ScreenCalibrationWidget.h
                   utils/CommandlineParser.h
                   utils/FileVersionDatabase.h
@@ -96,6 +99,7 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   utils/ResourcesLibrary.h
                   utils/SystemCommand.h
                   utils/TextCodecs.h
+                  utils/TypesetManager.h
                   utils/VersionInfo.h
                   )
 
@@ -116,7 +120,6 @@ endif (WITH_QTSCRIPT)
 
 set(TEXWORKS_UIS CitationSelectDialog.ui
                  CompletingEdit.ui
-                 ConfirmDelete.ui
                  Find.ui
                  HardWrapDialog.ui
                  PDFDocumentWindow.ui
@@ -128,7 +131,9 @@ set(TEXWORKS_UIS CitationSelectDialog.ui
                  SearchResults.ui
                  TemplateDialog.ui
                  TeXDocumentWindow.ui
-                 ToolConfig.ui)
+                 ToolConfig.ui
+                 ui/ListSelectDialog.ui
+                 )
 
 set(TEXWORKS_RCS ${TeXworks_SOURCE_DIR}/res/resfiles.qrc
                  ${TeXworks_SOURCE_DIR}/res/resources.qrc)
