@@ -215,6 +215,7 @@ ADD_EXECUTABLE(TeXworks ${GUI_TYPE}
   ${TeXworks_APP_ICONS}
 )
 add_dependencies(TeXworks GitRev)
+set_property(TARGET TeXworks PROPERTY ENABLE_EXPORTS TRUE)
 
 if (UNIX AND NOT APPLE)
   set_target_properties(TeXworks PROPERTIES
