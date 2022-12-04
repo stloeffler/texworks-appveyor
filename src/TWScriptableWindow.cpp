@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2009-2020  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2009-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -77,13 +77,13 @@ TWScriptableWindow::updateScriptsMenu()
 }
 
 void
-TWScriptableWindow::removeScriptsFromMenu(QMenu *menu, int startIndex /* = 0 */)
+TWScriptableWindow::removeScriptsFromMenu(QMenu *menu, QList<QAction*>::size_type startIndex /* = 0 */)
 {
 	if (!menu)
 		return;
 
 	QList<QAction*> actions = menu->actions();
-	for (int i = startIndex; i < actions.count(); ++i) {
+	for (auto i = startIndex; i < actions.count(); ++i) {
 		// if this is a popup menu, make sure all its children are destroyed
 		// first, or else old QActions may still be floating around somewhere
 		if (actions[i]->menu())
@@ -185,7 +185,11 @@ TWScriptableWindow::doAboutScripts()
 	aboutText += QLatin1String("</p><ul>");
 	foreach (const QObject * plugin,
 			 TWApp::instance()->getScriptManager()->languages()) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 3, 0)
 		const Tw::Scripting::ScriptLanguageInterface * i = qobject_cast<Tw::Scripting::ScriptLanguageInterface*>(plugin);
+#else
+		const Tw::Scripting::ScriptLanguageInterface * i = qobject_cast<const Tw::Scripting::ScriptLanguageInterface*>(plugin);
+#endif
 		if(!i) continue;
 		const bool isPlugin = (
 #if WITH_QTSCRIPT

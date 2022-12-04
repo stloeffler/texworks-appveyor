@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2022  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 #include "TWApp.h"
 #include "TWUtils.h"
 #include "TeXDocumentWindow.h"
+#include "ui/SelWinAction.h"
 
 #include <QCloseEvent>
 #include <QDesktopServices>
@@ -79,7 +80,6 @@ PDFDocumentWindow::PDFDocumentWindow(const QString &fileName, TeXDocumentWindow 
 	, _fullScreenManager(nullptr)
 	, _syncHighlight(nullptr)
 	, openedManually(false)
-	, _synchronizer(nullptr)
 {
 	init();
 
@@ -116,6 +116,11 @@ PDFDocumentWindow::PDFDocumentWindow(const QString &fileName, TeXDocumentWindow 
 
 PDFDocumentWindow::~PDFDocumentWindow()
 {
+	// Disconnect from windowListChanged notifications to avoid getting the
+	// signal after our TeXDocumentWindow is destroyed (but before the base
+	// QObject is destroyed, in which case the system wouldn't know what to do
+	// with the signal)
+	disconnect(TWApp::instance(), &TWApp::windowListChanged, this, nullptr);
 	docList.removeAll(this);
 #if defined(Q_OS_DARWIN)
 	// Work around QTBUG-17941
@@ -150,7 +155,13 @@ void PDFDocumentWindow::init()
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::changedPage, this, &PDFDocumentWindow::updateStatusBar);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::changedZoom, this, &PDFDocumentWindow::updateStatusBar);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::changedDocument, this, &PDFDocumentWindow::changedDocument);
-	connect(pdfWidget, &QtPDF::PDFDocumentWidget::searchResultHighlighted, this, &PDFDocumentWindow::searchResultHighlighted);
+	// NB: Using a queued connection ensures the signal has to pass through the
+	// event loop. If searching effectively blocks the GUI for a while (e.g., by
+	// spawning too many threads), this ensures that the highlighting processing
+	// (including clearing the highlighting after kPDFHighlightDuration) only
+	// starts when the GUI is responsive (i.e., the highlight is actually
+	// displayed)
+	connect(pdfWidget, &QtPDF::PDFDocumentWidget::searchResultHighlighted, this, &PDFDocumentWindow::searchResultHighlighted, Qt::QueuedConnection);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::changedPageMode, this, &PDFDocumentWindow::updatePageMode);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::requestOpenPdf, this, &PDFDocumentWindow::maybeOpenPdf);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::requestOpenUrl, this, &PDFDocumentWindow::maybeOpenUrl);
@@ -211,6 +222,7 @@ void PDFDocumentWindow::init()
 	connect(actionZoom_In, &QAction::triggered, pdfWidget, [=]() { pdfWidget->zoomIn(); });
 	connect(actionZoom_Out, &QAction::triggered, pdfWidget, [=]() { pdfWidget->zoomOut(); });
 	connect(actionFull_Screen, &QAction::triggered, this, &PDFDocumentWindow::toggleFullScreen);
+	connect(actionRuler, &QAction::toggled, pdfWidget, &QtPDF::PDFDocumentView::showRuler);
 	connect(pdfWidget, &QtPDF::PDFDocumentWidget::contextClick, this, &PDFDocumentWindow::syncClick);
 	pageModeSignalMapper.setMapping(actionPageMode_Single, QtPDF::PDFDocumentView::PageMode_SinglePage);
 	pageModeSignalMapper.setMapping(actionPageMode_Continuous, QtPDF::PDFDocumentView::PageMode_OneColumnContinuous);
@@ -301,6 +313,15 @@ void PDFDocumentWindow::init()
 			setPageMode(kDefault_PDFPageMode);
 			break;
 	}
+
+	const int pdfRulerUnits = settings.value(QStringLiteral("pdfRulerUnits"), kDefault_PreviewRulerUnits).toInt();
+	switch (pdfRulerUnits) {
+		case 0: pdfWidget->ruler()->setUnit(QtPDF::Physical::Length::Centimeters); break;
+		case 1: pdfWidget->ruler()->setUnit(QtPDF::Physical::Length::Inches); break;
+		case 2: pdfWidget->ruler()->setUnit(QtPDF::Physical::Length::Bigpoints); break;
+	}
+	actionRuler->setChecked(settings.value(QStringLiteral("pdfRulerShow"), kDefault_PreviewRulerShow).toBool());
+
 	resetMagnifier();
 
 	if (settings.contains(QString::fromLatin1("previewResolution"))) {
@@ -386,7 +407,7 @@ void PDFDocumentWindow::updateWindowMenu()
 	// well to uniquely identify the current file among all others open in
 	// TeXworks
 	Q_FOREACH(QAction * action, menuWindow->actions()) {
-		SelWinAction * selWinAction = qobject_cast<SelWinAction*>(action);
+		Tw::UI::SelWinAction * selWinAction = qobject_cast<Tw::UI::SelWinAction*>(action);
 		// If this is not an action related to an open window, skip it
 		if (!selWinAction)
 			continue;
@@ -440,6 +461,59 @@ void PDFDocumentWindow::saveRecentFileInfo()
 	TWApp::instance()->addToRecentFiles(fileProperties);
 }
 
+QString PDFDocumentWindow::getMainSourceFilename() const
+{
+	// If there are any open source documents, use their root path
+	for (TeXDocumentWindow * const win : sourceDocList) {
+		if (win == nullptr) {
+			continue;
+		}
+		const Tw::Document::TeXDocument * const doc = win->textDoc();
+		if (doc == nullptr) {
+			continue;
+		}
+		const QString path = doc->getRootFilePath();
+		if (QFileInfo::exists(path)) {
+				return path;
+		}
+	}
+	// If we have synchronization data, use the document that corresponds to the
+	// top left corner of the first page
+	// TODO: Is this necessarily a TeX file (and not, e.g., an aux file in case
+	// the first page is not a standard text page such as a toc, titlepage, or
+	// index/bibliography)?
+	if (_synchronizer) {
+		const TWSynchronizer::TeXSyncPoint syncPt = _synchronizer->syncFromPDF({fileName(), 0, QList<QRectF>() << QRectF()}, TWSynchronizer::LineResolution);
+		if (QFileInfo::exists(syncPt.filename)) {
+			return syncPt.filename;
+		}
+	}
+	// If all else fails, assume a .tex file with the same base name as the pdf
+	// is the root source file (this might be flakey, though, e.g. in case
+	// \jobname is redefined or non-standard typesetting tools are used)
+	QString src = fileName();
+	if (src.endsWith(QStringLiteral(".pdf"))) {
+		src.replace(src.length() - 3, 3, QStringLiteral("tex"));
+		if (QFileInfo::exists(src)) {
+			return src;
+		}
+	}
+	return {};
+}
+
+TeXDocumentWindow * PDFDocumentWindow::getFirstTeXDocumentWindow(const bool openIfNecessary)
+{
+	for (TeXDocumentWindow * const src : sourceDocList) {
+		if (src != nullptr) {
+			return src;
+		}
+	}
+	if (!openIfNecessary) {
+		return nullptr;
+	}
+	return TeXDocumentWindow::openDocument(getMainSourceFilename(), false);
+}
+
 void PDFDocumentWindow::loadFile(const QString &fileName)
 {
 	setCurrentFile(fileName);
@@ -456,29 +530,31 @@ void PDFDocumentWindow::reload()
 
 	clearSyncHighlight();
 	if (pdfWidget->load(curFile)) {
+		QSharedPointer<QtPDF::Backend::Document> doc = pdfWidget->document().toStrongRef();
+		if (doc) {
+			Tw::Settings settings;
+			doc->setPaperColor(settings.value(QStringLiteral("pdfPaperColor"), QVariant::fromValue<QColor>(kDefault_PaperColor)).value<QColor>());
+		}
 		loadSyncData();
 		emit reloaded();
 	}
 	else {
 		statusBar()->showMessage(tr("Failed to load file \"%1\"; perhaps it is not a valid PDF document.").arg(TWUtils::strippedName(curFile)));
 	}
+	updateTypesettingAction();
 	QApplication::restoreOverrideCursor();
 }
 
 void PDFDocumentWindow::loadSyncData()
 {
-	if (_synchronizer) {
-		delete _synchronizer;
-		_synchronizer = nullptr;
-	}
-	_synchronizer = new TWSyncTeXSynchronizer(curFile, [](const QString & filename) {
+	_synchronizer = std::unique_ptr<TWSyncTeXSynchronizer>(new TWSyncTeXSynchronizer(curFile, [](const QString & filename) {
 			const TeXDocumentWindow * win = TeXDocumentWindow::openDocument(filename, false, false);
 			return (win ? win->textDoc() : nullptr);
 		}, [](const QString & filename) {
 			PDFDocumentWindow * pdfWin = PDFDocumentWindow::findDocument(filename);
 			return (pdfWin && pdfWin->widget() ? pdfWin->widget()->document().toStrongRef() : QSharedPointer<QtPDF::Backend::Document>());
 		}
-	);
+	));
 	if (!_synchronizer)
 		statusBar()->showMessage(tr("Error initializing SyncTeX"), kStatusMessageDuration);
 	else if (!_synchronizer->isValid())
@@ -725,8 +801,10 @@ void PDFDocumentWindow::showScale(qreal scale)
 
 void PDFDocumentWindow::retypeset()
 {
-	if (sourceDocList.count() > 0)
-		sourceDocList.first()->typeset();
+	TeXDocumentWindow * src = getFirstTeXDocumentWindow(true);
+	if (src != nullptr) {
+		src->typeset();
+	}
 }
 
 void PDFDocumentWindow::interrupt()
@@ -832,17 +910,23 @@ void PDFDocumentWindow::updateTypesettingAction()
 		}
 		return false;
 	}();
+	const bool canTypeset = [&]() {
+		return !getMainSourceFilename().isEmpty();
+	}();
+
 
 	disconnect(actionTypeset, &QAction::triggered, this, nullptr);
 	if (isSourceTypesetting) {
 		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("process-stop")));
 		actionTypeset->setText(tr("Abort typesetting"));
 		connect(actionTypeset, &QAction::triggered, this, &PDFDocumentWindow::interrupt);
+		enableTypesetAction(true);
 	}
 	else {
 		actionTypeset->setIcon(QIcon::fromTheme(QStringLiteral("process-start")));
 		actionTypeset->setText(tr("Typeset"));
 		connect(actionTypeset, &QAction::triggered, this, &PDFDocumentWindow::retypeset);
+		enableTypesetAction(canTypeset);
 	}
 }
 

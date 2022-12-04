@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2019-2020  Stefan Löffler
+	Copyright (C) 2019-2022  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,6 +21,9 @@
 
 #include "document/TeXDocument.h"
 #include "TeXHighlighter.h"
+
+#include <QDir>
+#include <QFileInfo>
 
 namespace Tw {
 namespace Document {
@@ -83,6 +86,20 @@ void TeXDocument::parseModeLines()
 	}
 }
 
+QString TeXDocument::getRootFilePath() const
+{
+	if (hasModeLine(QStringLiteral("root"))) {
+		const QString rootName{getModeLineValue(QStringLiteral("root")).trimmed()};
+		const QFileInfo rootFileInfo{getFileInfo().dir(), rootName};
+		return rootFileInfo.absoluteFilePath();
+	}
+
+	if (!isStoredInFilesystem()) {
+		return {};
+	}
+	return absoluteFilePath();
+}
+
 void TeXDocument::maybeUpdateModeLines(int position, int charsRemoved, int charsAdded)
 {
 	Q_UNUSED(charsRemoved)
@@ -93,7 +110,7 @@ void TeXDocument::maybeUpdateModeLines(int position, int charsRemoved, int chars
 }
 
 // static
-bool TeXDocument::findNextWord(const QString & text, int index, int & start, int & end)
+bool TeXDocument::findNextWord(const QString & text, const QString::size_type index, QString::size_type & start, QString::size_type & end)
 {
 	// try to do a sensible "word" selection for TeX documents, taking into
 	// account the form of control sequences:

@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2020  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2021  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,14 +21,12 @@
 
 #include "TWUtils.h"
 
-#include "GitRev.h"
 #include "PDFDocumentWindow.h"
 #include "Settings.h"
 #include "TWApp.h"
 #include "TeXDocumentWindow.h"
-#include "utils/FileVersionDatabase.h"
+#include "ui/SelWinAction.h"
 #include "utils/ResourcesLibrary.h"
-#include "utils/VersionInfo.h"
 
 #include <QAction>
 #include <QCompleter>
@@ -212,7 +210,19 @@ void TWUtils::setDefaultFilters()
 	*filters << QObject::tr("Auxiliary files (*.aux *.toc *.lot *.lof *.nav *.out *.snm *.ind *.idx *.bbl *.brf)");
 	*filters << QObject::tr("Text files (*.txt)");
 	*filters << QObject::tr("PDF documents (*.pdf)");
-	*filters << QObject::tr("All files") + QLatin1String(" (*)"); // this must not be "*.*", which causes an extension ".*" to be added on some systems
+#ifdef Q_OS_WIN
+	// It seems (contrary to documentation) that on Windows, this has to be
+	// *.* to allow saving files with non-standard extensions (though *.* still
+	// does not allow to save without any extension at all, see below)
+	const QString allFilesFilter = QStringLiteral("*.*");
+//	const QString allFilesFilter = QStringLiteral("*");
+#else
+	// On other systems, *.* might require a . in the filename, which would
+	// preclude filenames without extension. In line with the documentation, *
+	// should be used in those cases
+	const QString allFilesFilter = QStringLiteral("*");
+#endif
+	*filters << QObject::tr("All files") + QStringLiteral(" (%1)").arg(allFilesFilter);
 }
 
 /*static*/
@@ -221,7 +231,7 @@ QString TWUtils::chooseDefaultFilter(const QString & filename, const QStringList
 	QString extension = QFileInfo(filename).completeSuffix();
 
 	if (extension.isEmpty())
-		return filters[0];
+		return filters.last();
 
 	foreach (QString filter, filters) {
 		// return filter if it corresponds to the given extension
@@ -239,7 +249,7 @@ QString TWUtils::strippedName(const QString &fullFileName, const unsigned int di
 {
 	QDir dir(QFileInfo(fullFileName).dir());
 	for (unsigned int i = 0; i < dirComponents; ++i) {
-		if (dir.exists() && QDir(dir.canonicalPath()).isRoot()) {
+		if (dir.isRoot()) {
 			// If we moved up to the root directory, there is no point in going
 			// any further; particularly on Windows, going further may produce
 			// invalid paths (such as C:\.. which make no sense and can result
@@ -248,7 +258,13 @@ QString TWUtils::strippedName(const QString &fullFileName, const unsigned int di
 		}
 		// NB: dir.cdUp() would be more logical, but fails if the resulting
 		// path does not exist
-		dir.setPath(dir.path() + QString::fromLatin1("/.."));
+		// NB: QDir::cleanPath resolves .. such as the one we deliberately
+		// introduce using string operations (i.e., without file system access)
+		// Avoiding file system access is important in case the path refers to
+		// a slow (or non-existent) network share, which would cause the program
+		// to hang until the file system access times out (which can accumulate
+		// to a very long time if this function has to be called repeatedly)
+		dir.setPath(QDir::cleanPath(dir.path() + QString::fromLatin1("/..")));
 	}
 	return dir.relativeFilePath(fullFileName);
 }
@@ -316,7 +332,7 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 	// Generate label list (list of filenames without directory components)
 	labelList = constructUniqueFileLabels(fileList);
 
-	int numRecentFiles = fileList.size();
+	QStringList::size_type numRecentFiles = fileList.size();
 
 	foreach(QAction * sep, menu->actions()) {
 		if (sep->isSeparator())
@@ -336,7 +352,7 @@ void TWUtils::updateRecentFileActions(QObject *parent, QList<QAction*> &actions,
 		delete act;
 	}
 
-	for (int i = 0; i < numRecentFiles; ++i) {
+	for (QStringList::size_type i = 0; i < numRecentFiles; ++i) {
 		// a "&" inside a menu label is considered a mnemonic, thus, we need to escape them
 		labelList[i].replace(QString::fromLatin1("&"), QString::fromLatin1("&&"));
 
@@ -358,7 +374,7 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 	// shorten the menu by removing everything from the first "selectWindow" action onwards
 	QList<QAction*> actions = menu->actions();
 	for (QList<QAction*>::iterator i = actions.begin(); i != actions.end(); ++i) {
-		SelWinAction *selWin = qobject_cast<SelWinAction*>(*i);
+		Tw::UI::SelWinAction *selWin = qobject_cast<Tw::UI::SelWinAction*>(*i);
 		if (selWin)
 			menu->removeAction(*i);
 	}
@@ -380,7 +396,7 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
-		SelWinAction *selWin = new SelWinAction(menu, fileList[i], labelList[i]);
+		Tw::UI::SelWinAction *selWin = new Tw::UI::SelWinAction(menu, fileList[i], labelList[i]);
 		if (texDoc->isModified()) {
 			QFont f(selWin->font());
 			f.setItalic(true);
@@ -393,7 +409,7 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 		// Don't use a direct connection as triggered has a boolean argument
 		// (checked) which would get forwarded to selectWindow's "activate",
 		// which doesn't make sense.
-		QObject::connect(selWin, &SelWinAction::triggered, texDoc, [texDoc](){ texDoc->selectWindow(); });
+		QObject::connect(selWin, &Tw::UI::SelWinAction::triggered, texDoc, [texDoc](){ texDoc->selectWindow(); });
 		menu->addAction(selWin);
 	}
 
@@ -413,12 +429,12 @@ void TWUtils::updateWindowMenu(QWidget *window, QMenu *menu) /* static */
 		if (first && !menu->actions().isEmpty())
 			menu->addSeparator();
 		first = false;
-		SelWinAction *selWin = new SelWinAction(menu, fileList[i], labelList[i]);
+		Tw::UI::SelWinAction *selWin = new Tw::UI::SelWinAction(menu, fileList[i], labelList[i]);
 		if (pdfDoc == qobject_cast<PDFDocumentWindow*>(window)) {
 			selWin->setCheckable(true);
 			selWin->setChecked(true);
 		}
-		QObject::connect(selWin, &SelWinAction::triggered, pdfDoc, &PDFDocumentWindow::selectWindow);
+		QObject::connect(selWin, &Tw::UI::SelWinAction::triggered, pdfDoc, &PDFDocumentWindow::selectWindow);
 		menu->addAction(selWin);
 	}
 }
@@ -547,7 +563,7 @@ void TWUtils::sideBySide(QWidget *window1, QWidget *window2)
 
 void TWUtils::tileWindowsInRect(const QWidgetList& windows, const QRect& bounds)
 {
-	int numWindows = windows.count();
+	QWidgetList::size_type numWindows = windows.count();
 	int rows = 1, cols = 1;
 	while (rows * cols < numWindows)
 		if (rows == cols)
@@ -758,9 +774,9 @@ void TWUtils::readConfig()
 		setDefaultFilters();
 }
 
-int TWUtils::balanceDelim(const QString& text, int pos, QChar delim, int direction)
+QString::size_type TWUtils::balanceDelim(const QString& text, QString::size_type pos, QChar delim, int direction)
 {
-	int len = text.length();
+	QString::size_type len = text.length();
 	QChar c;
 	while ((c = text[pos]) != delim) {
 		if (!openerMatching(c).isNull())
@@ -776,7 +792,7 @@ int TWUtils::balanceDelim(const QString& text, int pos, QChar delim, int directi
 	return pos;
 }
 
-int TWUtils::findOpeningDelim(const QString& text, int pos)
+QString::size_type TWUtils::findOpeningDelim(const QString& text, QString::size_type pos)
 	// find the first opening delimiter before offset /pos/
 {
 	while (--pos >= 0) {
@@ -825,44 +841,3 @@ void TWUtils::installCustomShortcuts(QWidget * widget, bool recursive /* = true 
 	if (deleteMap)
 		delete map;
 }
-
-// action subclass used for dynamic window-selection items in the Window menu
-
-SelWinAction::SelWinAction(QObject *parent, const QString &fileName, const QString &label)
-	: QAction(parent)
-{
-	setText(label);
-	setData(fileName);
-}
-
-// on OS X only, the singleton CmdKeyFilter object is attached to all TeXDocument editor widgets
-// to stop Command-keys getting inserted into edit text items
-
-CmdKeyFilter *CmdKeyFilter::filterObj = nullptr;
-
-CmdKeyFilter *CmdKeyFilter::filter()
-{
-	if (!filterObj)
-		filterObj = new CmdKeyFilter;
-	return filterObj;
-}
-
-bool CmdKeyFilter::eventFilter(QObject *obj, QEvent *event)
-{
-#if defined(Q_OS_DARWIN)
-	if (event->type() == QEvent::KeyPress) {
-		QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-		if ((keyEvent->modifiers() & Qt::ControlModifier) != 0) {
-			if (keyEvent->key() <= 0x0ff
-				&& keyEvent->key() != Qt::Key_Z
-				&& keyEvent->key() != Qt::Key_X
-				&& keyEvent->key() != Qt::Key_C
-				&& keyEvent->key() != Qt::Key_V
-				&& keyEvent->key() != Qt::Key_A)
-				return true;
-		}
-	}
-#endif
-	return QObject::eventFilter(obj, event);
-}
-

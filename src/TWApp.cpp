@@ -113,9 +113,6 @@ TWApp::TWApp(int &argc, char **argv)
 	: QApplication(argc, argv)
 	, recentFilesLimit(kDefaultMaxRecentFiles)
 	, defaultCodec(nullptr)
-	, binaryPaths(nullptr)
-	, defaultBinPaths(nullptr)
-	, engineList(nullptr)
 	, defaultEngineIndex(0)
 	, scriptManager(nullptr)
 {
@@ -174,7 +171,7 @@ void TWApp::init()
 			}
 		}
 		if (portable.contains(QString::fromLatin1("defaultbinpaths"))) {
-			defaultBinPaths = new QStringList;
+			defaultBinPaths = std::unique_ptr<QStringList>(new QStringList);
 			*defaultBinPaths = portable.value(QString::fromLatin1("defaultbinpaths")).toString().split(QString::fromLatin1(PATH_LIST_SEP), SkipEmptyParts);
 		}
 	}
@@ -345,7 +342,7 @@ void TWApp::about()
 {
 	QString aboutText = tr("<p>%1 is a simple environment for editing, typesetting, and previewing TeX documents.</p>").arg(QString::fromLatin1(TEXWORKS_NAME));
 	aboutText += QLatin1String("<small>");
-	aboutText += QLatin1String("<p>&#xA9; 2007-2021  Jonathan Kew, Stefan L&#xF6;ffler, Charlie Sharpsteen");
+  aboutText += QLatin1String("<p>&#xA9; 2007-2022  Jonathan Kew, Stefan L&#xF6;ffler, Charlie Sharpsteen");
 	if (Tw::Utils::VersionInfo::isGitInfoAvailable())
 		aboutText += tr("<br>Version %1 (%2) [r.%3, %4]").arg(Tw::Utils::VersionInfo::versionString(), Tw::Utils::VersionInfo::buildIdString(), Tw::Utils::VersionInfo::gitCommitHash(), QLocale::system().toString(Tw::Utils::VersionInfo::gitCommitDate().toLocalTime(), QLocale::ShortFormat));
 	else
@@ -845,7 +842,7 @@ void TWApp::setDefaultPaths()
 
 	QDir appDir(applicationDirPath());
 	if (!binaryPaths)
-		binaryPaths = new QStringList;
+		binaryPaths = std::unique_ptr<QStringList>(new QStringList);
 	else
 		binaryPaths->clear();
 	if (defaultBinPaths)
@@ -857,17 +854,20 @@ void TWApp::setDefaultPaths()
 		binaryPaths->append(appDir.absolutePath());
 #endif
 	QString envPath = QString::fromLocal8Bit(getenv("PATH"));
-	if (!envPath.isEmpty())
-		foreach (const QString& s, envPath.split(QString::fromLatin1(PATH_LIST_SEP), SkipEmptyParts))
-		if (!binaryPaths->contains(s))
-			binaryPaths->append(s);
+	if (!envPath.isEmpty()) {
+		foreach (const QString& s, envPath.split(QString::fromLatin1(PATH_LIST_SEP), SkipEmptyParts)) {
+			if (!binaryPaths->contains(s)) {
+				binaryPaths->append(s);
+			}
+		}
+	}
 	if (!defaultBinPaths) {
 		foreach (const QString& s, QString::fromUtf8(DEFAULT_BIN_PATHS).split(QString::fromLatin1(PATH_LIST_SEP), SkipEmptyParts)) {
 			if (!binaryPaths->contains(s))
 				binaryPaths->append(s);
 		}
 	}
-	for (int i = binaryPaths->count() - 1; i >= 0; --i) {
+	for (auto i = binaryPaths->count() - 1; i >= 0; --i) {
 		// Note: Only replace the environmental variables for testing directory
 		// existance but do not alter the binaryPaths themselves. Those might
 		// get stored, e.g., in the preferences and we want to keep
@@ -889,7 +889,7 @@ void TWApp::setDefaultPaths()
 const QStringList TWApp::getPrefsBinaryPaths()
 {
 	if (!binaryPaths) {
-		binaryPaths = new QStringList;
+		binaryPaths = std::unique_ptr<QStringList>(new QStringList);
 		Tw::Settings settings;
 		if (settings.contains(QString::fromLatin1("binaryPaths")))
 			*binaryPaths = settings.value(QString::fromLatin1("binaryPaths")).toStringList();
@@ -902,7 +902,7 @@ const QStringList TWApp::getPrefsBinaryPaths()
 void TWApp::setBinaryPaths(const QStringList& paths)
 {
 	if (!binaryPaths)
-		binaryPaths = new QStringList;
+		binaryPaths = std::unique_ptr<QStringList>(new QStringList);
 	*binaryPaths = paths;
 	Tw::Settings settings;
 	settings.setValue(QString::fromLatin1("binaryPaths"), paths);
@@ -911,7 +911,7 @@ void TWApp::setBinaryPaths(const QStringList& paths)
 void TWApp::setDefaultEngineList()
 {
 	if (!engineList)
-		engineList = new QList<Engine>;
+		engineList = std::unique_ptr< QList<Engine> >(new QList<Engine>);
 	else
 		engineList->clear();
 	*engineList
@@ -935,7 +935,7 @@ void TWApp::setDefaultEngineList()
 const QList<Engine> TWApp::getEngineList()
 {
 	if (!engineList) {
-		engineList = new QList<Engine>;
+		engineList = std::unique_ptr< QList<Engine> >(new QList<Engine>);
 		bool foundList = false;
 		// check for old engine list in Preferences
 		Tw::Settings settings;
@@ -1004,7 +1004,7 @@ void TWApp::saveEngineList()
 void TWApp::setEngineList(const QList<Engine>& engines)
 {
 	if (!engineList)
-		engineList = new QList<Engine>;
+		engineList = std::unique_ptr< QList<Engine> >(new QList<Engine>);
 	*engineList = engines;
 	saveEngineList();
 	Tw::Settings settings;

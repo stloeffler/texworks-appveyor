@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.1)
 
 project(TeXworksDependencyInstall)
 
-find_package(Qt5 REQUIRED COMPONENTS Widgets)
+if (NOT QT_DEFAULT_MAJOR_VERSION)
+	set(QT_DEFAULT_MAJOR_VERSION 5)
+endif (NOT QT_DEFAULT_MAJOR_VERSION)
+
+find_package(Qt${QT_DEFAULT_MAJOR_VERSION} REQUIRED COMPONENTS Widgets)
 
 # Adapted from https://github.com/Homebrew/homebrew-core/blob/e2c833d326c45d9aaf4e26af6dd8b2f31564dc04/Formula/fontconfig.rb
 file(GLOB _font_dirs /System/Library/Assets*/com_apple_MobileAsset_Font*)
@@ -31,8 +35,8 @@ ADD_GH_GROUP(libpng)
 
 # TODO: harfbuzz?
 ExternalProject_Add(freetype
-	URL https://download.savannah.gnu.org/releases/freetype/freetype-2.11.1.tar.xz
-	URL_HASH SHA256=3333ae7cfda88429c97a7ae63b7d01ab398076c3b67182e960e5684050f2c5c8
+	URL https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.xz
+	URL_HASH SHA256=4766f20157cc4cf0cd292f80bf917f92d1c439b243ac3018debf6b9140c41a7f
 	CMAKE_ARGS ${CMAKE_ARGS} -DBUILD_SHARED_LIBS=TRUE
 	DEPENDS libpng
 )
@@ -56,10 +60,9 @@ ExternalProject_Add(hunspell
 )
 ADD_GH_GROUP(hunspell)
 
-# fontconfig 2.13.94 is broken (configure.ac doesn't determine/handle default fonts correctly)
 ExternalProject_Add(fontconfig
-	URL https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.13.93.tar.xz
-	URL_HASH SHA256=ea968631eadc5739bc7c8856cef5c77da812d1f67b763f5e51b57b8026c1a0a0
+	URL https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.14.0.tar.xz
+	URL_HASH SHA256=dcbeb84c9c74bbfdb133d535fe1c7bedc9f2221a8daf3914b984c44c520e9bac
 	CONFIGURE_COMMAND ${CONFIGURE_ENV} CPPFLAGS=-I${CMAKE_INSTALL_PREFIX}/include LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ./configure ${CONFIGURE_ARGS} --with-add-fonts=${_font_dirs} --disable-docs
 	BUILD_IN_SOURCE TRUE
 	INSTALL_COMMAND make install RUN_FC_CACHE_TEST=false
@@ -77,24 +80,24 @@ ADD_GH_GROUP(libjpeg)
 
 # jbig? Lzma?
 ExternalProject_Add(libtiff
-	URL "https://download.osgeo.org/libtiff/tiff-4.3.0.tar.gz"
-	URL_HASH SHA256=0e46e5acb087ce7d1ac53cf4f56a09b221537fc86dfc5daaad1c2e89e1b37ac8
+	URL "https://download.osgeo.org/libtiff/tiff-4.4.0.tar.gz"
+	URL_HASH SHA256=917223b37538959aca3b790d2d73aa6e626b688e02dcda272aec24c2f498abed
 	CMAKE_ARGS ${CMAKE_ARGS}
 	DEPENDS libjpeg
 )
 ADD_GH_GROUP(libtiff)
 
 ExternalProject_Add(libopenjpeg
-	URL https://github.com/uclouvain/openjpeg/archive/refs/tags/v2.4.0.tar.gz
-	URL_HASH SHA256=8702ba68b442657f11aaeb2b338443ca8d5fb95b0d845757968a7be31ef7f16d
-	CMAKE_ARGS ${CMAKE_ARGS}
+	URL https://github.com/uclouvain/openjpeg/archive/refs/tags/v2.5.0.tar.gz
+	URL_HASH SHA256=0333806d6adecc6f7a91243b2b839ff4d2053823634d4f6ed7a59bc87409122a
+	CMAKE_ARGS ${CMAKE_ARGS} -DBUILD_CODEC=OFF
 	DEPENDS libtiff
 )
 ADD_GH_GROUP(libopenjpeg)
 
 ExternalProject_Add(lcms2
-	URL "https://github.com/mm2/Little-CMS/archive/refs/tags/lcms2.12.tar.gz"
-	URL_HASH SHA256=e90e77e43be35ec149d39f1ee7fe1c50c73309773a55b13839090f7138fbdcde
+	URL "https://github.com/mm2/Little-CMS/archive/refs/tags/lcms2.13.1.tar.gz"
+	URL_HASH SHA256=6f84c942ecde1b4852b5a051894502ac8c98d010acb3400dec958c6db1bc94ef
 	CONFIGURE_COMMAND ${CONFIGURE_ENV} ./configure ${CONFIGURE_ARGS} --with-tiff="${CMAKE_INSTALL_PREFIX}" --with-jpeg="${CMAKE_INSTALL_PREFIX}"
 	BUILD_IN_SOURCE TRUE
 	DEPENDS libtiff libjpeg
@@ -106,14 +109,14 @@ if (DEFINED ENV{MACOSX_DEPLOYMENT_TARGET} AND $ENV{MACOSX_DEPLOYMENT_TARGET} VER
 ExternalProject_Add(poppler
 	URL "https://poppler.freedesktop.org/poppler-21.12.0.tar.xz"
 	URL_HASH SHA256=acb840c2c1ec07d07e53c57c4b3a1ff3e3ee2d888d44e1e9f2f01aaf16814de7
-	CMAKE_ARGS ${CMAKE_ARGS} -DENABLE_BOOST=FALSE -DENABLE_CPP=FALSE -DENABLE_UTILS=FALSE -DENABLE_UNSTABLE_API_ABI_HEADERS=TRUE
+	CMAKE_ARGS ${CMAKE_ARGS} -DENABLE_BOOST=FALSE -DENABLE_CPP=FALSE -DENABLE_GLIB=FALSE -DENABLE_UTILS=FALSE -DENABLE_UNSTABLE_API_ABI_HEADERS=TRUE
 	DEPENDS fontconfig freetype lcms2 libjpeg libopenjpeg libpng libtiff
 )
 else ()
 ExternalProject_Add(poppler
-	URL "https://poppler.freedesktop.org/poppler-22.01.0.tar.xz"
-	URL_HASH SHA256=7d3493056b5b86413e5c693c2cae02c5c06cd8e618d14c2c31e2c84b67b2313e
-	CMAKE_ARGS ${CMAKE_ARGS} -DENABLE_BOOST=FALSE -DENABLE_CPP=FALSE -DENABLE_UTILS=FALSE -DENABLE_UNSTABLE_API_ABI_HEADERS=TRUE
+	URL "https://poppler.freedesktop.org/poppler-22.08.0.tar.xz"
+	URL_HASH SHA256=b493328721402f25cb7523f9cdc2f7d7c59f45ad999bde75c63c90604db0f20b
+	CMAKE_ARGS ${CMAKE_ARGS} -DENABLE_BOOST=FALSE -DENABLE_CPP=FALSE -DENABLE_GLIB=FALSE -DENABLE_UTILS=FALSE -DENABLE_UNSTABLE_API_ABI_HEADERS=TRUE -DRUN_GPERF_IF_PRESENT=FALSE
 	DEPENDS fontconfig freetype lcms2 libjpeg libopenjpeg libpng libtiff
 )
 endif ()
@@ -127,8 +130,8 @@ ExternalProject_Add(poppler-data
 ADD_GH_GROUP(poppler-data)
 
 ExternalProject_Add(lua
-	URL "https://www.lua.org/ftp/lua-5.4.3.tar.gz"
-	URL_HASH SHA1=1dda2ef23a9828492b4595c0197766de6e784bc7
+	URL "https://www.lua.org/ftp/lua-5.4.4.tar.gz"
+	URL_HASH SHA256=164c7849653b80ae67bec4b7473b884bf5cc8d2dca05653475ec2ed27b9ebf61
 	CONFIGURE_COMMAND ""
 	BUILD_COMMAND make MYCFLAGS="-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 	BUILD_IN_SOURCE TRUE

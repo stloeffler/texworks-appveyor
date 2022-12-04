@@ -36,6 +36,7 @@ endif()
 SET(CMAKE_COLOR_MAKEFILE ON)
 SET(CMAKE_AUTOMOC TRUE)
 SET(CMAKE_AUTORCC TRUE)
+SET(CMAKE_AUTOUIC TRUE)
 
 # Always add the current source and binary directories to the header include
 # path when compiling.
@@ -99,10 +100,6 @@ if (QT_DEFAULT_MAJOR_VERSION EQUAL 6)
       set(WITH_TESTS OFF)
     endif()
   endif()
-
-  if (WIN32 AND NOT BUILD_SHARED_LIBS)
-    find_package(Qt6WindowsPlatformSupport)
-  endif ()
 
   # Note: Qt6 only sets Qt6_VERSION, etc., but not QT_VERSION_MAJOR,
   # etc. which is used here.
@@ -168,7 +165,7 @@ IF( WITH_POPPLERQT )
   # expose its version number, there is no easy way to check for these at
   # compile-time)
   include(CheckCXXSourceCompiles)
-  set(CMAKE_REQUIRED_LIBRARIES Poppler::poppler-qt${QT_VERSION_MAJOR} Qt${QT_VERSION_MAJOR}::Core)
+  set(CMAKE_REQUIRED_LIBRARIES Poppler::poppler-qt${QT_VERSION_MAJOR} Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
 
   # Page::SearchFlags were added in 0.31
   CHECK_CXX_SOURCE_COMPILES("#include <poppler-qt${QT_VERSION_MAJOR}.h>\nint main() { double x; Poppler::Document::load(QString())->page(0)->search(QString(), x, x, x, x, Poppler::Page::NextResult, Poppler::Page::IgnoreCase); return 0; }" POPPLER_HAS_SEARCH_FLAGS)
@@ -259,30 +256,39 @@ ENDIF()
 # Library
 # -------
 SET(QTPDF_SRCS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/GuidelineEditDialog.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/GuidelineEditDialog.ui
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentView.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentWidget.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentTools.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFBackend.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFFontDescriptor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFPageTile.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFRuler.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFSearcher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFToC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFTransitions.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFActions.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFAnnotations.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFGuideline.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PaperSizes.cpp
 )
 
 SET(QTPDF_HDRS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/GuidelineEditDialog.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentView.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentWidget.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFDocumentTools.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFBackend.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFFontDescriptor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFPageTile.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFRuler.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFSearcher.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFToC.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFTransitions.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFActions.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFAnnotations.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/PDFGuideline.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/PaperSizes.h
 )
 

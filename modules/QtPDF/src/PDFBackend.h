@@ -105,6 +105,12 @@ protected:
 class PDFPageCache : protected QCache<PDFPageTile, QSharedPointer<QImage> >
 {
   typedef QCache<PDFPageTile, QSharedPointer<QImage> > Super;
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+  using size_type = int;
+#else
+  using size_type = qsizetype;
+#endif
 public:
   enum TileStatus { UNKNOWN, PLACEHOLDER, CURRENT, OUTDATED };
 
@@ -112,8 +118,8 @@ public:
   virtual ~PDFPageCache() = default;
 
   // Note: Each image has a cost of 1
-  int maxSize() const { return maxCost(); }
-  void setMaxSize(const int num) { setMaxCost(num); }
+  size_type maxSize() const { return maxCost(); }
+  void setMaxSize(const size_type num) { setMaxCost(num); }
 
   // Returns the image under the key `tile` or nullptr if it doesn't exist
   QSharedPointer<QImage> getImage(const PDFPageTile & tile) const;
@@ -405,6 +411,9 @@ public:
   QMap<QString, QString> metaDataOther() const { QReadLocker docLocker(_docLock.data()); return _meta_other; }
   // </metadata>
 
+  virtual QColor paperColor() const { return Qt::white; }
+  virtual void setPaperColor(const QColor & color) { Q_UNUSED(color); }
+
   // Searches the entire document for the given string and returns a list of
   // boxes that contain that text.
   //
@@ -453,8 +462,8 @@ class Page
 protected:
   Document *_parent{nullptr};
   const int _n{-1};
-  Transition::AbstractTransition * _transition{nullptr};
-  QReadWriteLock * _pageLock{new QReadWriteLock(QReadWriteLock::Recursive)};
+  std::unique_ptr<Transition::AbstractTransition> _transition;
+  mutable QReadWriteLock _pageLock{QReadWriteLock::Recursive};
   const QSharedPointer<QReadWriteLock> _docLock;
 
   // Getter for derived classes (that are not friends of Document)
@@ -484,11 +493,11 @@ public:
 
   virtual ~Page() = default;
 
-  Document * document() { QReadLocker pageLocker(_pageLock); return _parent; }
+  Document * document() { QReadLocker pageLocker(&_pageLock); return _parent; }
   int pageNum() const;
   virtual QSizeF pageSizeF() const = 0;
   virtual QRectF getContentBoundingBox() const;
-  Transition::AbstractTransition * transition() const { QReadLocker pageLocker(_pageLock); return _transition; }
+  Transition::AbstractTransition * transition() const { QReadLocker pageLocker(&_pageLock); return _transition.get(); }
 
   virtual QList< QSharedPointer<Annotation::Link> > loadLinks() = 0;
   // Uses doc-read-lock and page-read-lock.

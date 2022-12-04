@@ -40,10 +40,13 @@ set(TEXWORKS_SRCS BibTeXFile.cpp
                   scripting/Script.cpp
                   ui/ClickableLabel.cpp
                   ui/ClosableTabWidget.cpp
+                  ui/ColorButton.cpp
                   ui/LineNumberWidget.cpp
                   ui/ListSelectDialog.cpp
                   ui/RemoveAuxFilesDialog.cpp
                   ui/ScreenCalibrationWidget.cpp
+                  ui/SelWinAction.cpp
+                  utils/CmdKeyFilter.cpp
                   utils/CommandlineParser.cpp
                   utils/FileVersionDatabase.cpp
                   utils/FullscreenManager.cpp
@@ -89,10 +92,13 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   scripting/Script.h
                   ui/ClickableLabel.h
                   ui/ClosableTabWidget.h
+                  ui/ColorButton.h
                   ui/LineNumberWidget.h
                   ui/ListSelectDialog.h
                   ui/RemoveAuxFilesDialog.h
                   ui/ScreenCalibrationWidget.h
+                  ui/SelWinAction.h
+                  utils/CmdKeyFilter.cpp
                   utils/CommandlineParser.h
                   utils/FileVersionDatabase.h
                   utils/FullscreenManager.h
@@ -142,6 +148,9 @@ FILE(GLOB TEXWORKS_TRANS_TS   "${TeXworks_SOURCE_DIR}/trans/*.ts")
 FILE(GLOB QT_TRANS_QM         "${TeXworks_SOURCE_DIR}/trans/qt/*.qm")
 
 IF ( WIN32 )
+  if (NOT MSVC)
+    set(CREATE_MANIFEST TRUE)
+  endif (NOT MSVC)
   configure_file(${TeXworks_SOURCE_DIR}/res/TeXworks.rc TeXworks.rc)
   list(APPEND TEXWORKS_SRCS ${CMAKE_CURRENT_BINARY_DIR}/TeXworks.rc)
 ENDIF ( WIN32 )

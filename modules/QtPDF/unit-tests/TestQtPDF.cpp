@@ -1,6 +1,6 @@
 /*
   This is part of TeXworks, an environment for working with TeX documents
-  Copyright (C) 2013-2021  Stefan Löffler
+  Copyright (C) 2013-2022  Stefan Löffler
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 */
 #include "TestQtPDF.h"
 #include "PaperSizes.h"
+#include "PhysicalUnits.h"
 
 #ifdef USE_MUPDF
   typedef QtPDF::MuPDFBackend Backend;
@@ -267,6 +268,7 @@ void TestQtPDF::loadDocs()
     _docs[QString::fromLatin1("metadata")] = backend.newDocument(QString::fromLatin1("metadata.pdf"));
     _docs[QString::fromLatin1("page-rotation")] = backend.newDocument(QString::fromLatin1("page-rotation.pdf"));
     _docs[QString::fromLatin1("annotations")] = backend.newDocument(QString::fromLatin1("annotations.pdf"));
+    _docs[QString::fromLatin1("jpg")] = backend.newDocument(QStringLiteral("jpg.pdf"));
   }
 }
 
@@ -1207,7 +1209,7 @@ void TestQtPDF::ToCItem()
   QtPDF::Backend::PDFToCItem ti, def, act;
   QString label(QStringLiteral("label"));
 
-  act.setAction(new QtPDF::PDFGotoAction(QtPDF::PDFDestination(0)));
+  act.setAction(std::unique_ptr<QtPDF::PDFAction>(new QtPDF::PDFGotoAction(QtPDF::PDFDestination(0))));
 
   // Defaults
   QCOMPARE(ti.label(), QString());
@@ -1251,7 +1253,7 @@ void TestQtPDF::ToCItem()
   QVERIFY(ti == def);
 
   QtPDF::PDFGotoAction actGoto1 = QtPDF::PDFGotoAction(QtPDF::PDFDestination(1));
-  ti.setAction(new QtPDF::PDFGotoAction(actGoto1));
+  ti.setAction(std::unique_ptr<QtPDF::PDFAction>(new QtPDF::PDFGotoAction(actGoto1)));
   QVERIFY(ti.action() != nullptr);
   QCOMPARE(*ti.action(), dynamic_cast<const QtPDF::PDFAction&>(actGoto1));
   QVERIFY(!(ti == def));
@@ -1397,6 +1399,7 @@ void TestQtPDF::page_renderToImage_data()
   QTest::newRow("base14-fonts-ZapfDingbats") << base14Doc << 0 << "base14-fonts-1.png" << QRect(200, 1468, 840, 30) << 150.;
   newDocTest("base14-fonts") << 0 << "base14-fonts-1.png" << QRect() << 15.;
   newDocTest("poppler-data") << 0 << "poppler-data-1.png" << QRect() << 3.;
+  newDocTest("jpg") << 0 << "jpg.png" << QRect() << 15.;
 }
 
 void TestQtPDF::page_renderToImage()
@@ -1873,8 +1876,8 @@ void TestQtPDF::pageTile()
     for (int j = i + 1; j < tiles.size(); ++j) {
       auto t1 = tiles[i];
       auto t2 = tiles[j];
-      uint h1{qHash(t1)};
-      uint h2{qHash(t2)};
+      auto h1 = qHash(t1);
+      auto h2 = qHash(t2);
 
       QVERIFY(t1 == t1);
       QVERIFY(t2 == t2);
@@ -1890,6 +1893,23 @@ void TestQtPDF::pageTile()
 #ifdef DEBUG
   QCOMPARE(static_cast<QString>(tiles[0]), QStringLiteral("p0,1x1,r0|0x1|1"));
 #endif
+}
+
+void TestQtPDF::physicalLength()
+{
+  using namespace QtPDF::Physical;
+  Length l1(1, Length::Inches);
+
+  QCOMPARE(l1.val(Length::Bigpoints), 72.);
+  QCOMPARE(l1.val(Length::Inches), 1.);
+  QCOMPARE(l1.val(Length::Centimeters), 2.54);
+
+  l1.setVal(144., Length::Bigpoints);
+  QCOMPARE(l1.val(Length::Bigpoints), 144.);
+  QCOMPARE(l1.val(Length::Inches), 2.);
+  QCOMPARE(l1.val(Length::Centimeters), 2 * 2.54);
+
+  QCOMPARE(Length::convert(1, Length::Centimeters, Length::Inches), 1. / 2.54);
 }
 
 } // namespace UnitTest

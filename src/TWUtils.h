@@ -79,8 +79,8 @@ public:
 	static QChar openerMatching(QChar c);
 	static void readConfig();
 
-	static int balanceDelim(const QString& text, int pos, QChar delim, int direction);
-	static int findOpeningDelim(const QString& text, int pos);
+	static QString::size_type balanceDelim(const QString& text, QString::size_type pos, QChar delim, int direction);
+	static QString::size_type findOpeningDelim(const QString& text, QString::size_type pos);
 
 	static const QString& includeTextCommand();
 	static const QString& includePdfCommand();
@@ -108,31 +108,5 @@ private:
 	static QString sIncludePostscriptCommand;
 	static QString sCleanupPatterns;
 };
-
-// this special QAction class is used in Window menus, so that it's easy to recognize the dynamically-created items
-class SelWinAction : public QAction
-{
-	Q_OBJECT
-
-public:
-	SelWinAction(QObject *parent, const QString & fileName, const QString &label);
-};
-
-// filter used to stop Command-keys getting inserted into edit text items
-// (only used on Mac OS X)
-class CmdKeyFilter: public QObject
-{
-	Q_OBJECT
-
-public:
-	static CmdKeyFilter *filter();
-
-protected:
-	bool eventFilter(QObject *obj, QEvent *event) override;
-
-private:
-	static CmdKeyFilter *filterObj;
-};
-
 
 #endif
