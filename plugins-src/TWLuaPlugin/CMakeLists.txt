@@ -23,9 +23,9 @@ target_include_directories(TWLuaPlugin PRIVATE ${TeXworks_SOURCE_DIR}/src)
 # Specify link libraries even if the plugin is built statically so all the
 # interface properties of the Qt targets (include directories, lib directories,
 # etc.) are available
-TARGET_LINK_LIBRARIES(TWLuaPlugin ${QT_LIBRARIES} ${LUA_LIBRARIES} ${TEXWORKS_ADDITIONAL_LIBS})
+target_link_libraries(TWLuaPlugin PRIVATE ${QT_LIBRARIES} ${LUA_LIBRARIES} ${TEXWORKS_ADDITIONAL_LIBS})
 IF (${BUILD_SHARED_PLUGINS})
-	target_link_libraries(TWLuaPlugin PRIVATE TeXworks)
+  target_link_libraries(TWLuaPlugin PRIVATE TeXworks)
   INSTALL(TARGETS TWLuaPlugin
     LIBRARY DESTINATION ${TeXworks_PLUGIN_DIR}
   )
