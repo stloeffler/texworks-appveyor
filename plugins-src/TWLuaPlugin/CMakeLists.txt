@@ -25,6 +25,7 @@ target_include_directories(TWLuaPlugin PRIVATE ${TeXworks_SOURCE_DIR}/src)
 # etc.) are available
 TARGET_LINK_LIBRARIES(TWLuaPlugin ${QT_LIBRARIES} ${LUA_LIBRARIES} ${TEXWORKS_ADDITIONAL_LIBS})
 IF (${BUILD_SHARED_PLUGINS})
+	target_link_libraries(TWLuaPlugin PRIVATE TeXworks)
   INSTALL(TARGETS TWLuaPlugin
     LIBRARY DESTINATION ${TeXworks_PLUGIN_DIR}
   )
