@@ -45,7 +45,6 @@ set(TEXWORKS_SRCS BibTeXFile.cpp
                   ui/ListSelectDialog.cpp
                   ui/RemoveAuxFilesDialog.cpp
                   ui/ScreenCalibrationWidget.cpp
-                  ui/SelWinAction.cpp
                   utils/CmdKeyFilter.cpp
                   utils/CommandlineParser.cpp
                   utils/FileVersionDatabase.cpp
@@ -55,6 +54,7 @@ set(TEXWORKS_SRCS BibTeXFile.cpp
                   utils/TextCodecs.cpp
                   utils/TypesetManager.cpp
                   utils/VersionInfo.cpp
+                  utils/WindowManager.cpp
                   )
 
 set(TEXWORKS_HDRS BibTeXFile.h
@@ -97,7 +97,6 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   ui/ListSelectDialog.h
                   ui/RemoveAuxFilesDialog.h
                   ui/ScreenCalibrationWidget.h
-                  ui/SelWinAction.h
                   utils/CmdKeyFilter.cpp
                   utils/CommandlineParser.h
                   utils/FileVersionDatabase.h
@@ -107,6 +106,7 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   utils/TextCodecs.h
                   utils/TypesetManager.h
                   utils/VersionInfo.h
+                  utils/WindowManager.h
                   )
 
 if (WIN32)
@@ -210,7 +210,7 @@ ENDIF()
 
 # Build the executable
 ADD_EXECUTABLE(TeXworks ${GUI_TYPE}
-  ${TEXWORKS_SRCS} ${TEXWORKS_HDRS} ${TEXWORKS_UIS}
+  ${TEXWORKS_SRCS} ${TEXWORKS_HDRS}
   ${TEXWORKS_RCS}
   ${TeXworks_APP_ICONS}
 )
@@ -239,7 +239,7 @@ add_custom_target(${PROJECT_NAME}_UpdateTranslations COMMAND "${CMAKE_COMMAND}"
   "-DOUTPUTFILE=\"${CMAKE_SOURCE_DIR}/trans/${PROJECT_NAME}_trans.pro\""
   "-DPROJECT_NAME=\"${PROJECT_NAME}\""
   "-DQt_LUPDATE_EXECUTABLE=\"${lupdatePath}\""
-  "-DFILES=\"${_sources};${TEXWORKS_TRANS_TS}\""
+  "-DFILES=\"${_sources};${TEXWORKS_UIS};${TEXWORKS_TRANS_TS}\""
   "-DINCLUDEPATH=\"../src/\""
   -P "${PROJECT_SOURCE_DIR}/modules/QtPDF/CMake/Modules/UpdateTranslations.cmake"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

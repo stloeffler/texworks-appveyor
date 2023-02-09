@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2021  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2023  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -193,7 +193,7 @@ void Document::reload()
   QWriteLocker docLocker(_docLock.data());
 
   clearPages();
-  _pageCache.markOutdated();
+  _pageCache.markOutdated(this);
 
   load(_fileName);
 
@@ -613,10 +613,8 @@ QImage Page::renderToImage(double xres, double yres, QRect render_box, bool cach
   }
 
   if( cache ) {
-    PDFPageTile key(xres, yres, render_box, _n);
-    QImage * img = new QImage(renderedPage.copy());
-    if (img != _parent->pageCache().setImage(key, img, PDFPageCache::CURRENT))
-      delete img;
+    const PDFPageTile key(xres, yres, render_box, _parent, _n);
+    _parent->pageCache().setImage(key, QSharedPointer<QImage>(new QImage(renderedPage.copy())), PDFPageCache::CURRENT);
   }
 
   return renderedPage;

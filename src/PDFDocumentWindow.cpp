@@ -26,7 +26,7 @@
 #include "TWApp.h"
 #include "TWUtils.h"
 #include "TeXDocumentWindow.h"
-#include "ui/SelWinAction.h"
+#include "utils/WindowManager.h"
 
 #include <QCloseEvent>
 #include <QDesktopServices>
@@ -92,7 +92,7 @@ PDFDocumentWindow::PDFDocumentWindow(const QString &fileName, TeXDocumentWindow 
 	if (properties.contains(QString::fromLatin1("geometry")))
 		restoreGeometry(properties.value(QString::fromLatin1("geometry")).toByteArray());
 	else
-		TWUtils::zoomToHalfScreen(this, true);
+		Tw::Utils::WindowManager::zoomToHalfScreen(this, true);
 
 	if (properties.contains(QString::fromLatin1("state")))
 		restoreState(properties.value(QString::fromLatin1("state")).toByteArray(), kPDFWindowStateVersion);
@@ -401,27 +401,18 @@ void PDFDocumentWindow::updateRecentFileActions()
 
 void PDFDocumentWindow::updateWindowMenu()
 {
-	TWUtils::updateWindowMenu(this, menuWindow);
+	Tw::Utils::WindowManager::updateWindowMenu(this, menuWindow);
 
-	// If the window list changed, we might want to update our window title as
-	// well to uniquely identify the current file among all others open in
-	// TeXworks
-	Q_FOREACH(QAction * action, menuWindow->actions()) {
-		Tw::UI::SelWinAction * selWinAction = qobject_cast<Tw::UI::SelWinAction*>(action);
-		// If this is not an action related to an open window, skip it
-		if (!selWinAction)
-			continue;
-		// If this action corresponds to the current file, use it's label as
-		// window text
-		if (selWinAction->data().toString() == fileName())
-			setWindowTitle(tr("%1[*] - %2").arg(selWinAction->text(), tr(TEXWORKS_NAME)));
+	const QString label = Tw::Utils::WindowManager::uniqueLabelForFile(fileName());
+	if (!label.isEmpty()) {
+		setWindowTitle(tr("%1[*] - %2").arg(label, tr(TEXWORKS_NAME)));
 	}
 }
 
 void PDFDocumentWindow::sideBySide()
 {
 	if (sourceDocList.count() > 0) {
-		TWUtils::sideBySide(sourceDocList.first(), this);
+		Tw::Utils::WindowManager::sideBySide(sourceDocList.first(), this);
 		sourceDocList.first()->selectWindow(false);
 		selectWindow();
 	}
@@ -539,7 +530,7 @@ void PDFDocumentWindow::reload()
 		emit reloaded();
 	}
 	else {
-		statusBar()->showMessage(tr("Failed to load file \"%1\"; perhaps it is not a valid PDF document.").arg(TWUtils::strippedName(curFile)));
+		statusBar()->showMessage(tr("Failed to load file \"%1\"; perhaps it is not a valid PDF document.").arg(Tw::Utils::WindowManager::strippedName(curFile)));
 	}
 	updateTypesettingAction();
 	QApplication::restoreOverrideCursor();
@@ -773,7 +764,7 @@ void PDFDocumentWindow::setCurrentFile(const QString &fileName)
 {
 	curFile = QFileInfo(fileName).canonicalFilePath();
 	//: Format for the window title (ex. "file.pdf[*] - TeXworks")
-	setWindowTitle(tr("%1[*] - %2").arg(TWUtils::strippedName(curFile), tr(TEXWORKS_NAME)));
+	setWindowTitle(tr("%1[*] - %2").arg(Tw::Utils::WindowManager::strippedName(curFile), tr(TEXWORKS_NAME)));
 	TWApp::instance()->updateWindowMenus();
 }
 
