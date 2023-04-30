@@ -23,7 +23,7 @@
 #       └── packaging
 #           ├── <a href="CMake/packaging/CMakeLists.html">CMakeLists.txt</a>
 #           └── mac
-#               └── <a href="CMake/packaging/mac/MacPackagingTasks.cmake.html">MacPackagingTasks.cmake.in</a>
+#               └── <a href="CMake/packaging/mac/MacPackagingTasks.cmake.html">MacPackagingTasks.in.cmake</a>
 # </pre>
 #
 # Using CMake as a buildsystem offers some nice advantages:
@@ -94,6 +94,11 @@ SET(CMAKE_AUTOUIC TRUE)
 # Make the contents of `CMake/Modules` available. Among other things, this
 # directory contains scripts that locate project components such as hunspell.
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/Modules ${PROJECT_SOURCE_DIR}/modules/QtPDF/CMake/Modules ${CMAKE_MODULE_PATH})
+SET(
+  CMAKE_MODULE_PATH
+  ${PROJECT_SOURCE_DIR}/CMake/Include
+  ${CMAKE_MODULE_PATH}
+)
 
 IF(WIN32 AND MINGW)
   # Ensure that no cpp flags are passed to windres, the Windows resource compiler.
@@ -137,7 +142,7 @@ FILE(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/src/GitRev.h TeXworks_GIT_INFO)
 LIST(GET TeXworks_GIT_INFO 1 TeXworks_GIT_COMMIT)
 STRING(REGEX REPLACE "#define GIT_COMMIT_HASH \"([a-f0-9]+\\*?)\"" "\\1" TeXworks_GIT_HASH "${TeXworks_GIT_COMMIT}")
 LIST(GET TeXworks_GIT_INFO 2 TeXworks_GIT_COMMIT)
-STRING(REGEX REPLACE "#define GIT_COMMIT_DATE \"([-+:0-9 Z]+)\"" "\\1" TeXworks_GIT_DATE "${TeXworks_GIT_COMMIT}")
+STRING(REGEX REPLACE "#define GIT_COMMIT_DATE \"([-+:0-9TZ]+)\"" "\\1" TeXworks_GIT_DATE "${TeXworks_GIT_COMMIT}")
 
 
 # Declare Project Options
@@ -226,18 +231,7 @@ IF (UNIX AND NOT APPLE)
   ENDIF()
 ENDIF()
 
-# Source: https://stackoverflow.com/a/31010221
-macro(use_cxx11)
-  if (CMAKE_VERSION VERSION_LESS "3.1")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-    endif ()
-  else ()
-    set (CMAKE_CXX_STANDARD 11)
-  endif ()
-endmacro(use_cxx11)
-
-use_cxx11()
+set (CMAKE_CXX_STANDARD 11)
 
 # Dependency Configuration
 # ========================
@@ -353,7 +347,7 @@ SET(TeXworks_LIBS
 # -------------------------------
 
 IF ( WITH_LUA )
-  FIND_PACKAGE(Lua)
+  find_package(TwxLua)
 ENDIF()
 
 IF ( WITH_PYTHON )

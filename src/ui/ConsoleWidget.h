@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2019-2020  Stefan Löffler
+	Copyright (C) 2023  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,32 +19,38 @@
 	see <http://www.tug.org/texworks/>.
 */
 
-#include "SignalCounter.h"
+#ifndef ConsoleWidget_H
+#define ConsoleWidget_H
 
-namespace UnitTest {
+#include <QProcess>
+#include <QTextEdit>
 
-bool SignalCounter::wait(int timeout)
+namespace Tw {
+namespace UI {
+
+class ConsoleWidget : public QTextEdit
 {
-	const int origCount = count();
-	_timerId = startTimer(timeout);
-	_eventLoop.exec();
-	return count() > origCount;
-}
+	Q_OBJECT
+public:
+	ConsoleWidget(QWidget * parent = nullptr);
+	~ConsoleWidget() override;
 
-void SignalCounter::timerEvent(QTimerEvent * event)
-{
-	if (event->timerId() != _timerId)
-		return;
-	killTimer(_timerId);
-	_timerId = -1;
-	_eventLoop.exit();
-}
+	QProcess * process() const { return m_process; }
+	void setProcess(QProcess * p, const bool clearConsole = true);
 
-void SignalCounter::increment()
-{
-	++_count;
-	if (_eventLoop.isRunning())
-		_eventLoop.exit();
-}
+	void echo(const QString & str, const QColor foregroundColor = {});
 
-} // namespace UnitTest
+private slots:
+	void appendOutput(QByteArray output);
+
+private:
+	void processIncompleteUTF8Codes(QByteArray & data);
+
+	QProcess * m_process{nullptr};
+	QByteArray m_unicodeCarry;
+};
+
+} // namespace UI
+} // namespace Tw
+
+#endif // !defined(ConsoleWidget_H)

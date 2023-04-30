@@ -21,7 +21,6 @@
 
 #include "Utils_test.h"
 
-#include "SignalCounter.h"
 #include "utils/CommandlineParser.h"
 #include "utils/FileVersionDatabase.h"
 #include "utils/FullscreenManager.h"
@@ -70,7 +69,6 @@ bool operator==(const FileVersionDatabase & db1, const FileVersionDatabase & db2
 } // namespace Utils
 } // namespace Tw
 
-
 namespace UnitTest {
 
 class FullscreenManager : public Tw::Utils::FullscreenManager
@@ -86,6 +84,9 @@ public:
 void TestUtils::initTestCase()
 {
 	QStandardPaths::setTestModeEnabled(true);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+	qRegisterMetaType<QProcess::ExitStatus>("QProcess::ExitStatus");
+#endif
 }
 
 void TestUtils::cleanupTestCase()
@@ -165,7 +166,11 @@ void TestUtils::FileVersionDatabase_save()
 void TestUtils::SystemCommand_wait()
 {
 	Tw::Utils::SystemCommand cmd(this);
-	SignalCounter spy(&cmd, static_cast<void (Tw::Utils::SystemCommand::*)(int, QProcess::ExitStatus)>(&Tw::Utils::SystemCommand::finished));
+#if QT_VERSION < QT_VERSION_CHECK(5, 4, 0)
+	QSignalSpy spy(&cmd, SIGNAL(finished(int, QProcess::ExitStatus)));
+#else
+	QSignalSpy spy(&cmd, static_cast<void (Tw::Utils::SystemCommand::*)(int, QProcess::ExitStatus)>(&Tw::Utils::SystemCommand::finished));
+#endif
 
 	QVERIFY(spy.isValid());
 
@@ -398,7 +403,8 @@ void TestUtils::FullscreenManager()
 		m.addShortcut(QKeySequence(Qt::Key_F), SLOT(update()));
 		QCOMPARE(m.shortcuts().count(), 0);
 
-		QMouseEvent e(QMouseEvent::Move, {0, 0}, Qt::NoButton, Qt::NoButton, {});
+		const QPoint mousePos{0, 0};
+		QMouseEvent e(QMouseEvent::Move, mousePos, mousePos, Qt::NoButton, Qt::NoButton, {});
 		m.mouseMoveEvent(&e);
 	}
 	{
@@ -409,6 +415,7 @@ void TestUtils::FullscreenManager()
 #else
 		QSignalSpy spy(&m, &::UnitTest::FullscreenManager::fullscreenChanged);
 #endif
+		QVERIFY(spy.isValid());
 
 		w.setAttribute(Qt::WA_TranslucentBackground);
 		w.setMenuBar(new QMenuBar);
@@ -417,8 +424,8 @@ void TestUtils::FullscreenManager()
 
 		w.show();
 		QCoreApplication::processEvents();
-
-		QVERIFY(spy.isValid());
+		// Ensure the window is properly shown/activated/polished
+		spy.wait(m.timeout());
 
 		QCOMPARE(m.isFullscreen(), false);
 
@@ -441,8 +448,10 @@ void TestUtils::FullscreenManager()
 
 		if (!w.menuBar()->isNativeMenuBar()) {
 			constexpr int threshold = 10;
-			QMouseEvent mouseOver(QMouseEvent::Move, {0, threshold}, Qt::NoButton, Qt::NoButton, {});
-			QMouseEvent mouseOut(QMouseEvent::Move, {0, qMax(threshold, w.menuBar()->height()) + 1.}, Qt::NoButton, Qt::NoButton, {});
+			const QPoint overPos{0, threshold};
+			const QPoint outPos{0, qMax(threshold, w.menuBar()->height()) + 1};
+			QMouseEvent mouseOver(QMouseEvent::Move, overPos, overPos, Qt::NoButton, Qt::NoButton, {});
+			QMouseEvent mouseOut(QMouseEvent::Move, outPos, outPos, Qt::NoButton, Qt::NoButton, {});
 
 			// Hover over and move away quickly (should not trigger the menubar)
 			m.mouseMoveEvent(&mouseOver);
