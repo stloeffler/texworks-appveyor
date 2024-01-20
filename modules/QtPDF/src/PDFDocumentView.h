@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2022  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2023  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -24,8 +24,9 @@
 
 namespace QtPDF {
 
-// Forward declare classes defined in this header.
 class PDFDocumentScene;
+
+// Forward declare classes defined in this header.
 class PDFPageGraphicsItem;
 class PDFLinkGraphicsItem;
 class PDFDocumentMagnifierView;
@@ -45,7 +46,7 @@ class PDFDocumentView : public QGraphicsView {
 public:
   enum PageMode { PageMode_SinglePage, PageMode_OneColumnContinuous, PageMode_TwoColumnContinuous, PageMode_Presentation };
   enum MouseMode { MouseMode_MagnifyingGlass, MouseMode_Move, MouseMode_MarqueeZoom, MouseMode_Measure, MouseMode_Select };
-  enum Dock { Dock_TableOfContents, Dock_MetaData, Dock_Fonts, Dock_Permissions, Dock_Annotations };
+  enum Dock { Dock_TableOfContents, Dock_MetaData, Dock_Fonts, Dock_Permissions, Dock_Annotations, Dock_OptionalContent };
   using size_type = QList<QGraphicsItem*>::size_type;
 
   PDFDocumentView(QWidget *parent = nullptr);
@@ -259,276 +260,6 @@ protected:
   QPixmap _dropShadow;
 };
 
-
-class PDFDocumentInfoWidget : public QWidget
-{
-  Q_OBJECT
-  friend class PDFDocumentView;
-public:
-  PDFDocumentInfoWidget(QWidget * parent = nullptr, const QString & title = QString(), const QString & objectName = QString()) : QWidget(parent) { setObjectName(objectName); setWindowTitle(title); }
-  ~PDFDocumentInfoWidget() override = default;
-  // If the widget has a fixed size, it should not be resized (it can, e.g., be
-  // put into a QScrollArea instead).
-public slots:
-  void setWindowTitle(const QString & windowTitle);
-#if QT_VERSION < QT_VERSION_CHECK(5, 2, 0)
-signals:
-  void windowTitleChanged(const QString &);
-#endif
-protected slots:
-  virtual void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> doc) { _doc = doc; }
-  virtual void retranslateUi() { }
-  virtual void clear() = 0;
-protected:
-  void changeEvent(QEvent * event) override;
-  // we need to keep a reference to the document to allow dynamic lookup of data
-  // (e.g., when retranslating the widget)
-  QWeakPointer<QtPDF::Backend::Document> _doc;
-};
-
-class PDFToCInfoWidget : public PDFDocumentInfoWidget
-{
-  Q_OBJECT
-public:
-  PDFToCInfoWidget(QWidget * parent);
-  ~PDFToCInfoWidget() override;
-
-protected slots:
-  void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> newDoc) override;
-  void clear() final;
-  void retranslateUi() override;
-signals:
-  void actionTriggered(const QtPDF::PDFAction*);
-private slots:
-  void itemSelectionChanged();
-private:
-  static void recursiveAddTreeItems(const QList<Backend::PDFToCItem> & tocItems, QTreeWidgetItem * parentTreeItem);
-  static void recursiveClearTreeItems(QTreeWidgetItem * parent);
-  QTreeWidget * _tree;
-};
-
-class PDFMetaDataInfoWidget : public PDFDocumentInfoWidget
-{
-  Q_OBJECT
-public:
-  PDFMetaDataInfoWidget(QWidget * parent);
-  ~PDFMetaDataInfoWidget() override = default;
-
-protected slots:
-  void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> doc) override;
-  void clear() override;
-  void retranslateUi() final;
-  void reload();
-private:
-  QGroupBox * _documentGroup;
-  QLabel * _title, * _titleLabel;
-  QLabel * _author, * _authorLabel;
-  QLabel * _subject, * _subjectLabel;
-  QLabel * _keywords, * _keywordsLabel;
-  QLabel * _pageSize, * _pageSizeLabel;
-  QLabel * _fileSize, * _fileSizeLabel;
-  QGroupBox * _processingGroup;
-  QLabel * _creator, * _creatorLabel;
-  QLabel * _producer, * _producerLabel;
-  QLabel * _creationDate, * _creationDateLabel;
-  QLabel * _modDate, * _modDateLabel;
-  QLabel * _trapped, * _trappedLabel;
-  QGroupBox * _otherGroup;
-};
-
-class PDFFontsInfoWidget : public PDFDocumentInfoWidget
-{
-  Q_OBJECT
-public:
-  PDFFontsInfoWidget(QWidget * parent);
-  ~PDFFontsInfoWidget() override = default;
-
-protected slots:
-  void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> doc) override;
-  void clear() final;
-  void retranslateUi() final;
-  void reload();
-protected:
-  void showEvent(QShowEvent * event) override {
-    Q_UNUSED(event)
-    initFromDocument(_doc);
-  }
-private:
-  QTableWidget * _table;
-};
-
-class PDFPermissionsInfoWidget : public PDFDocumentInfoWidget
-{
-  Q_OBJECT
-public:
-  PDFPermissionsInfoWidget(QWidget * parent);
-  ~PDFPermissionsInfoWidget() override = default;
-
-protected slots:
-  void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> doc) override;
-  void clear() final;
-  void retranslateUi() final;
-  void reload();
-private:
-  QLabel * _print, * _printLabel;
-  QLabel * _modify, * _modifyLabel;
-  QLabel * _extract, * _extractLabel;
-  QLabel * _addNotes, * _addNotesLabel;
-  QLabel * _form, * _formLabel;
-};
-
-class PDFAnnotationsInfoWidget : public PDFDocumentInfoWidget
-{
-  Q_OBJECT
-
-  QFutureWatcher< QList< QSharedPointer<Annotation::AbstractAnnotation> > > _annotWatcher;
-  QTableWidget * _table;
-
-  static QList< QSharedPointer<Annotation::AbstractAnnotation> > loadAnnotations(QWeakPointer<Backend::Page> thePage);
-
-public:
-  PDFAnnotationsInfoWidget(QWidget * parent);
-  ~PDFAnnotationsInfoWidget() override = default;
-
-protected slots:
-  void initFromDocument(const QWeakPointer<QtPDF::Backend::Document> newDoc) override;
-  void clear() override;
-  void retranslateUi() final;
-  void annotationsReady(int index);
-};
-
-// Cannot use QGraphicsGridLayout and similar classes for pages because it only
-// works for QGraphicsLayoutItem (i.e., QGraphicsWidget)
-class PDFPageLayout : public QObject {
-  Q_OBJECT
-  struct LayoutItem {
-    PDFPageGraphicsItem * page;
-    int row;
-    int col;
-  };
-
-  QList<LayoutItem> _layoutItems;
-  int _numCols{1};
-  int _firstCol{0};
-  qreal _xSpacing{10}; // spacing in pixel @ zoom=1
-  qreal _ySpacing{10};
-  bool _isContinuous{true};
-
-public:
-  PDFPageLayout() = default;
-  ~PDFPageLayout() override = default;
-  int columnCount() const { return _numCols; }
-  int firstColumn() const { return _firstCol; }
-  qreal xSpacing() const { return _xSpacing; }
-  qreal ySpacing() const { return _ySpacing; }
-  bool isContinuous() const { return _isContinuous; }
-  void setContinuous(const bool continuous = true);
-
-  void setColumnCount(const int numCols);
-  void setColumnCount(const int numCols, const int firstCol);
-  void setFirstColumn(const int firstCol);
-  void setXSpacing(const qreal xSpacing);
-  void setYSpacing(const qreal ySpacing);
-  int rowCount() const;
-
-  void addPage(PDFPageGraphicsItem * page);
-  void removePage(PDFPageGraphicsItem * page);
-  void insertPage(PDFPageGraphicsItem * page, PDFPageGraphicsItem * before = nullptr);
-  void clearPages() { _layoutItems.clear(); }
-
-public slots:
-  void relayout();
-
-signals:
-  void layoutChanged(const QRectF sceneRect);
-
-private:
-  void rearrange();
-  void continuousModeRelayout();
-  void singlePageModeRelayout();
-};
-
-
-class PDFDocumentScene : public QGraphicsScene
-{
-  Q_OBJECT
-  typedef QGraphicsScene Super;
-public:
-  using size_type = PDFDocumentView::size_type;
-
-  PDFDocumentScene(QSharedPointer<Backend::Document> a_doc, QObject *parent = nullptr, const double dpiX = -1, const double dpiY = -1);
-  ~PDFDocumentScene() override;
-
-  QWeakPointer<Backend::Document> document();
-  QList<QGraphicsItem*> pages();
-  QList<QGraphicsItem*> pages(const QPolygonF &polygon);
-  QGraphicsItem* pageAt(const size_type idx) const;
-  QGraphicsItem* pageAt(const QPointF &pt) const;
-  size_type pageNumAt(const QPolygonF &polygon);
-  size_type pageNumAt(const QPointF &pt);
-  size_type pageNumFor(const PDFPageGraphicsItem * const graphicsItem) const;
-  PDFPageLayout& pageLayout() { return _pageLayout; }
-
-  void showOnePage(const size_type pageIdx);
-  void showOnePage(const PDFPageGraphicsItem * page);
-  void showAllPages();
-
-  bool watchForDocumentChangesOnDisk() const { return _fileWatcher.files().size() > 0; }
-  void setWatchForDocumentChangesOnDisk(const bool doWatch = true);
-
-  size_type lastPage();
-
-  const QWeakPointer<Backend::Document> document() const { return _doc.toWeakRef(); }
-
-  void setResolution(const double dpiX, const double dpiY);
-
-signals:
-  void pageChangeRequested(QtPDF::PDFDocumentScene::size_type pageNum);
-  void pageLayoutChanged();
-  void pdfActionTriggered(const QtPDF::PDFAction * action);
-  void documentChanged(const QWeakPointer<QtPDF::Backend::Document> doc);
-
-public slots:
-  void doUnlockDialog();
-  void retranslateUi();
-  void reloadDocument();
-
-protected slots:
-  void pageLayoutChanged(const QRectF& sceneRect);
-  void reinitializeScene();
-  void finishUnlock();
-
-protected:
-  // Used in non-continuous mode to keep track of currently shown page across
-  // reloads. -2 is used in continuous mode. -1 indicates an invalid value.
-  size_type _shownPageIdx;
-  bool event(QEvent * event) override;
-
-  QWidget * _unlockWidget;
-  QLabel * _unlockWidgetLockText, * _unlockWidgetLockIcon;
-  QPushButton * _unlockWidgetUnlockButton;
-  QGraphicsProxyWidget * _unlockProxy;
-
-private:
-  const QSharedPointer<Backend::Document> _doc;
-
-  // This may change to a `QSet` in the future
-  QList<QGraphicsItem*> _pages;
-  size_type _lastPage;
-  PDFPageLayout _pageLayout;
-  QFileSystemWatcher _fileWatcher;
-  QTimer _reloadTimer;
-  double _dpiX, _dpiY;
-
-  void handleActionEvent(const PDFActionEvent * action_event);
-
-  // Parent has no copy constructor, so this class shouldn't either. Also, we
-  // hold some information in an `auto_ptr` which does interesting things on
-  // copy that C++ newbies may not expect.
-  Q_DISABLE_COPY(PDFDocumentScene)
-};
-
-
 // Inherits from `QGraphicsOject` instead of `QGraphicsItem` in order to
 // support SIGNALS/SLOTS used by threaded rendering.
 //
@@ -537,7 +268,7 @@ class PDFPageGraphicsItem : public QGraphicsObject
 {
   Q_OBJECT
   typedef QGraphicsObject Super;
-  using size_type = PDFDocumentScene::size_type;
+  using size_type = PDFDocumentView::size_type;
 
   QWeakPointer<Backend::Page> _page;
 

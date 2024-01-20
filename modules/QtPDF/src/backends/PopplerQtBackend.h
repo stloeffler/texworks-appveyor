@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2022  Charlie Sharpsteen, Stefan Löffler
+ * Copyright (C) 2013-2023  Charlie Sharpsteen, Stefan Löffler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -82,6 +82,7 @@ public:
 
   PDFToC toc() const override;
   QList<PDFFontInfo> fonts() const override;
+  QAbstractItemModel * optionalContentModel() const override;
 
   QColor paperColor() const override;
   void setPaperColor(const QColor & color) override;

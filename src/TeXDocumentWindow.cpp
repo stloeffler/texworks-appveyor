@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2007-2022  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2007-2024  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -546,13 +546,20 @@ void TeXDocumentWindow::reloadSpellcheckerMenu()
 			if (loc.language() == QLocale::C)
 				label = dict;
 			else {
-				QLocale::Country country = loc.country();
-				if (country != QLocale::AnyCountry)
-					//: Format to display spell-checking dictionaries (ex. "English - UnitedStates (en_US)")
-					label = tr("%1 - %2 (%3)").arg(QLocale::languageToString(loc.language()), QLocale::countryToString(country), dict);
-				else
+				const QString languageString = QLocale::languageToString(loc.language());
+#if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
+				const QString territoryString = (loc.country() != QLocale::AnyCountry ? QLocale::countryToString(loc.country()) : QString());
+#else
+				const QString territoryString = (loc.territory() != QLocale::AnyTerritory ? QLocale::territoryToString(loc.territory()) : QString());
+#endif
+				if (!territoryString.isEmpty()) {
+					//: Format to display spell-checking dictionaries (ex. "English - United States (en_US)")
+					label = tr("%1 - %2 (%3)").arg(languageString, territoryString, dict);
+				}
+				else {
 					//: Format to display spell-checking dictionaries (ex. "English (en_US)")
-					label = tr("%1 (%2)").arg(QLocale::languageToString(loc.language()), dict);
+					label = tr("%1 (%2)").arg(languageString, dict);
+				}
 			}
 
 			QAction * act = new QAction(label, menuSpelling);
@@ -1982,6 +1989,8 @@ void TeXDocumentWindow::doHardWrapDialog()
 void TeXDocumentWindow::doInsertCitationsDialog()
 {
 	CitationSelectDialog dlg(this);
+	Tw::Settings settings;
+	const QString defaultCiteCmd = settings.value(QStringLiteral("citeCommand"), QStringLiteral("\\cite{%1}")).toString();
 
 	if (!textDoc()->hasModeLine(QStringLiteral("bibfile")) && !textDoc()->hasModeLine(QStringLiteral("bibfiles"))) {
 		emit asyncFlashStatusBarMessage(tr("No '%!TEX bibfile' modline found"), kStatusMessageDuration);
@@ -1991,7 +2000,7 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 	// Load the bibfiles
 	QStringList bibFiles = textDoc()->getModeLineValue(QStringLiteral("bibfile")).split(QLatin1Char{','}) +
 						   textDoc()->getModeLineValue(QStringLiteral("bibfiles")).split(QLatin1Char{','});
-	Q_FOREACH(QString bibFile, bibFiles) {
+	for (QString bibFile : bibFiles) {
 		bibFile = bibFile.trimmed();
 		if (bibFile.isEmpty()) continue;
 		// Assume relative paths are given with respect to the current file's
@@ -2000,7 +2009,7 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 		dlg.addBibTeXFile(bibFile);
 	}
 
-	// Work out the enclosing citation command and already existing BiBTeX keys
+	// Work out the enclosing citation command and already existing BibTeX keys
 	// (if any)
 	// TODO: Make configurable in a config text file
 	QStringList citeCmds = QStringList() << QLatin1String("cite") \
@@ -2020,13 +2029,17 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 	                                     << QLatin1String("Citealp") \
 	                                     << QLatin1String("Citeauthor");
 
-	QString pattern = QString::fromLatin1("\\\\(");
-	Q_FOREACH(QString citeCmd, citeCmds)
+	QString pattern = QString::fromLatin1("(\\\\(?:");
+	for (const QString & citeCmd : citeCmds)
 		pattern += QRegularExpression::escape(citeCmd) + QString::fromLatin1("|");
 	pattern.chop(1);
-	pattern += QLatin1String(")\\*?\\s*(\\[[^\\]]*\\])?\\s*\\{([^}]*)\\}");
+	pattern += QLatin1String(")\\*?\\s*(?:\\[[^\\]]*\\])?\\s*\\{)([^}]*)\\}");
+	// (\\(?:cite|...|Citeauthor)\*?\s*(?:\[[^\]]*\])?\s*\{)([^}]*)\}
+	// capture group 1: everything in front of the BibTeX keys (e.g. "\cite{"
+	//                  or "\Citep*[bla]{"
+	// capture group 2: the existing BibTeX keys
 
-	QTextCursor curs(textDoc());
+	QTextCursor curs(textCursor());
 	using pos_type = decltype(curs.position());
 	constexpr int PeekLength = 1024;
 
@@ -2038,10 +2051,11 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 	curs.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, peekFront + peekBack);
 	curs.endEditBlock();
 
-	QString peekStr = curs.selectedText();
+	const QString peekStr = curs.selectedText();
 	QRegularExpression reCmd(pattern);
 	QRegularExpressionMatch mCmd;
 
+	// Check if the cursor is in one of the standard cite commands
 #if QT_VERSION >= 0x050500
 	auto pos = peekStr.lastIndexOf(reCmd, peekFront, &mCmd);
 	Q_UNUSED(pos)
@@ -2051,8 +2065,29 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 		mCmd= reCmd.match(peekStr, pos);
 #endif
 	bool updateExisting = mCmd.hasMatch() && mCmd.capturedStart() < peekFront && mCmd.capturedEnd() > peekFront;
-	if (updateExisting)
-		dlg.setInitialKeys(mCmd.captured(3).split(QLatin1Char(',')));
+
+	if (!updateExisting) {
+		// If the cursor was not in any of the standard cite commands, check if
+		// it was in a (user-defined) default cite command
+		const QString pattern{QStringLiteral("(") + QRegularExpression::escape(defaultCiteCmd).replace(QStringLiteral("\\%1"), QStringLiteral(")(.*?)"))};
+		QRegularExpression reCmd{pattern};
+
+#if QT_VERSION >= 0x050500
+		auto pos = peekStr.lastIndexOf(reCmd, peekFront, &mCmd);
+		Q_UNUSED(pos)
+#else
+		int pos = peekStr.lastIndexOf(reCmd, peekFront);
+		if (pos >= 0)
+			mCmd= reCmd.match(peekStr, pos);
+#endif
+		updateExisting = mCmd.hasMatch() && mCmd.capturedStart() < peekFront && mCmd.capturedEnd() > peekFront;
+	}
+
+	// If the cursor was in a recognized cite command, pre-seed the dialog with
+	// the extracted BibTeX keys
+	if (updateExisting) {
+		dlg.setInitialKeys(mCmd.captured(2).split(QLatin1Char(',')));
+	}
 
 	// Run the dialog
 	if (dlg.exec()) {
@@ -2061,7 +2096,7 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 		// If the dialog was invoked without the cursor inside a citation
 		// command, insert a new one (\cite by default)
 		if (!updateExisting) {
-			insertText(QString::fromLatin1("\\cite{%1}").arg(dlg.getSelectedKeys().join(QLatin1String(","))));
+			insertText(defaultCiteCmd.arg(dlg.getSelectedKeys().join(QLatin1String(","))));
 		}
 		// Otherwise, replace the argument of the existing citation command
 		else {
@@ -2069,13 +2104,9 @@ void TeXDocumentWindow::doInsertCitationsDialog()
 			// collapse the selection to the beginning
 			curs.setPosition(qMin(curs.position(), curs.anchor()));
 			// move to the beginning of the cite argument (just after '{')
-			// NB: if there was no argument ("{}"), cap(3) is empty; for empty
-			// captures pos() returns -1 according to the documentation; in that
-			// case, use the fact that cap(0) is not empty and we know that the
-			// argument is followed by "}"
-			curs.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, static_cast<pos_type>(mCmd.capturedStart(3) >= 0 ? mCmd.capturedStart(3) : mCmd.capturedEnd(0) - 1));
-			// select the cite argument (until just before '}')
-			curs.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, static_cast<pos_type>(mCmd.capturedLength(3)));
+			curs.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, static_cast<pos_type>(mCmd.capturedEnd(1)));
+			// select the cite argument
+			curs.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, static_cast<pos_type>(mCmd.capturedLength(2)));
 			// replace the text
 			curs.insertText(dlg.getSelectedKeys().join(QLatin1String(",")));
 			curs.endEditBlock();
@@ -2988,10 +3019,10 @@ void TeXDocumentWindow::executeAfterTypesetHooks()
 	for (int i = consoleTabs->count() - 1; i > 0; --i)
 		consoleTabs->removeTab(i);
 
-	foreach (Tw::Scripting::Script *s, scriptManager->getHookScripts(QString::fromLatin1("AfterTypeset"))) {
+	foreach (Tw::Scripting::ScriptObject *so, scriptManager->getHookScripts(QString::fromLatin1("AfterTypeset"))) {
 		QVariant result;
-		Tw::Scripting::ScriptAPI api(s, qApp, this, result);
-		bool success = s->run(api);
+		Tw::Scripting::ScriptAPI api(so, qApp, this, result);
+		bool success = so->run(api);
 		if (success && !result.isNull()) {
 			QString res = result.toString();
 			if (res.startsWith(QLatin1String("<html>"), Qt::CaseInsensitive)) {
@@ -3002,14 +3033,14 @@ void TeXDocumentWindow::executeAfterTypesetHooks()
 				connect(browser, &QTextBrowser::anchorClicked, this, &TeXDocumentWindow::anchorClicked);
 				browser->setHtml(res);
 				browser->setTextInteractionFlags(Qt::LinksAccessibleByKeyboard | Qt::LinksAccessibleByMouse | Qt::TextBrowserInteraction | Qt::TextSelectableByKeyboard | Qt::TextSelectableByMouse);
-				consoleTabs->addTab(browser, s->getTitle());
+				consoleTabs->addTab(browser, so->getTitle());
 			}
 			else {
 				QTextEdit *textEdit = new QTextEdit(this);
 				textEdit->setPlainText(res);
 				textEdit->setReadOnly(true);
 				textEdit->setTextInteractionFlags(Qt::LinksAccessibleByKeyboard | Qt::LinksAccessibleByMouse | Qt::TextBrowserInteraction | Qt::TextSelectableByKeyboard | Qt::TextSelectableByMouse);
-				consoleTabs->addTab(textEdit, s->getTitle());
+				consoleTabs->addTab(textEdit, so->getTitle());
 			}
 		}
 	}

@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2010-2022  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
+	Copyright (C) 2010-2023  Jonathan Kew, Stefan Löffler, Charlie Sharpsteen
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 #include "Settings.h"
 #include "TWApp.h"
 #include "document/SpellChecker.h"
-#include "scripting/Script.h"
+#include "scripting/ScriptObject.h"
 #include "scripting/ScriptAPI.h"
 #include "utils/SystemCommand.h"
 
@@ -44,7 +44,7 @@
 namespace Tw {
 namespace Scripting {
 
-ScriptAPI::ScriptAPI(Script* script, QObject* twapp, QObject* ctx, QVariant& res)
+ScriptAPI::ScriptAPI(ScriptObject* script, QObject* twapp, QObject* ctx, QVariant& res)
 	: m_script(script),
 	  m_app(twapp),
 	  m_target(ctx),
