@@ -3,8 +3,8 @@
 . "${APPVEYOR_BUILD_FOLDER}/ci/appveyor/defs.sh"
 . "${APPVEYOR_BUILD_FOLDER}/ci/appveyor/package_versions.sh"
 
-print_headline "Updating MSYS2"
-pacman --noconfirm -Syuu
+#print_headline "Updating MSYS2"
+#pacman --noconfirm -Syuu
 
 print_headline "Installing dependencies"
 pacman --noconfirm -S autotools mingw-w64-x86_64-boost mingw-w64-x86_64-freetype mingw-w64-x86_64-openjpeg2 mingw-w64-x86_64-lcms2 mingw-w64-x86_64-libpng mingw-w64-x86_64-libtiff mingw-w64-x86_64-curl mingw-w64-x86_64-lua mingw-w64-x86_64-nss
