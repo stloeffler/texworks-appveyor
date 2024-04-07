@@ -1,6 +1,6 @@
 /*
 	This is part of TeXworks, an environment for working with TeX documents
-	Copyright (C) 2019-2020  Stefan Löffler
+	Copyright (C) 2024  Stefan Löffler
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -18,38 +18,24 @@
 	For links to further information, or to contact the authors,
 	see <http://www.tug.org/texworks/>.
 */
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#ifndef IniConfig_H
+#define IniConfig_H
 
 #include <QSettings>
 
 namespace Tw {
 
-class Settings
+namespace Utils {
+
+class IniConfig : public QSettings
 {
-	QSettings m_s;
+	Q_OBJECT
 public:
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	using KeyType = QString;
-#else
-	using KeyType = QAnyStringView;
-#endif
-
-	Settings() = default;
-
-	bool contains(KeyType key) const;
-	void remove(KeyType key);
-	void setValue(KeyType key, const QVariant & value);
-	QVariant value(KeyType key, const QVariant & defaultValue = QVariant()) const;
-
-	QString fileName() const;
-
-	static void setPortableIniPath(const QString & iniPath);
-#if defined(Q_OS_WIN)
-	bool isStoredInRegistry();
-#endif
+	IniConfig(const QString & filename, QObject * parent = nullptr) : QSettings(filename, QSettings::IniFormat, parent) { }
 };
+
+} // namespace Utils
 
 } // namespace Tw
 
-#endif // SETTINGS_H
+#endif // !defined(IniConfig_H)

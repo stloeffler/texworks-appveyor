@@ -105,6 +105,7 @@ set(TEXWORKS_HDRS BibTeXFile.h
                   utils/CommandlineParser.h
                   utils/FileVersionDatabase.h
                   utils/FullscreenManager.h
+                  utils/IniConfig.h
                   utils/ResourcesLibrary.h
                   utils/SystemCommand.h
                   utils/TextCodecs.h
@@ -154,6 +155,7 @@ FILE(GLOB QT_TRANS_QM         "${TeXworks_SOURCE_DIR}/trans/qt/*.qm")
 IF ( WIN32 )
   if (NOT MSVC)
     set(CREATE_MANIFEST TRUE)
+    configure_file(${TeXworks_SOURCE_DIR}/res/TeXworks.exe.in.manifest TeXworks.exe.manifest)
   endif (NOT MSVC)
   configure_file(${TeXworks_SOURCE_DIR}/res/TeXworks.in.rc TeXworks.rc)
   list(APPEND TEXWORKS_SRCS ${CMAKE_CURRENT_BINARY_DIR}/TeXworks.rc)
@@ -207,8 +209,8 @@ IF (NOT ${BUILD_SHARED_PLUGINS})
   IF (WITH_LUA AND LUA_FOUND)
     LIST(INSERT TeXworks_LIBS 0 TWLuaPlugin ${LUA_LIBRARIES})
   ENDIF()
-  IF (WITH_PYTHON AND PYTHONLIBS_FOUND)
-    LIST(INSERT TeXworks_LIBS 0 TWPythonPlugin ${PYTHON_LIBRARIES})
+  IF (WITH_PYTHON AND Python_Development_FOUND)
+    LIST(INSERT TeXworks_LIBS 0 TWPythonPlugin ${Python_LIBRARIES})
   ENDIF()
 ENDIF()
 

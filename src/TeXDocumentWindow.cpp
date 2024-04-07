@@ -1412,6 +1412,11 @@ void TeXDocumentWindow::pdfClosed()
 
 bool TeXDocumentWindow::saveFile(const QFileInfo & fileInfo)
 {
+	const auto showNotSavedMessage = [this]() {
+		statusBar()->showMessage(tr("Document \"%1\" was not saved")
+									 .arg(textDoc()->getFileInfo().fileName()),
+								 kStatusMessageDuration);
+	};
 	QDateTime fileModified = fileInfo.lastModified();
 	if (fileInfo == textDoc()->getFileInfo() && fileModified.isValid() && fileModified != lastModified) {
 		if (QMessageBox::warning(this, tr("File changed on disk"),
@@ -1419,11 +1424,8 @@ bool TeXDocumentWindow::saveFile(const QFileInfo & fileInfo)
 									"Do you want to proceed with saving this file, overwriting the version on disk?")
 								 .arg(fileInfo.absoluteFilePath()),
 								 QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Cancel) {
-			notSaved:
-				statusBar()->showMessage(tr("Document \"%1\" was not saved")
-										 .arg(textDoc()->getFileInfo().fileName()),
-										 kStatusMessageDuration);
-				return false;
+			showNotSavedMessage();
+			return false;
 		}
 	}
 
@@ -1447,20 +1449,24 @@ bool TeXDocumentWindow::saveFile(const QFileInfo & fileInfo)
 				   "If you proceed, they will be replaced with default codes. "
 				   "Alternatively, you may wish to use a different encoding (such as UTF-8) to avoid loss of data.")
 		            .arg(QString::fromUtf8(codec->name().constData())),
-				QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Cancel)
-			goto notSaved;
+				QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Cancel) {
+			showNotSavedMessage();
+			return false;
+		}
 	}
 
 	clearFileWatcher();
 
 	{
-		QFile file(fileInfo.absoluteFilePath());
+		QSaveFile file(fileInfo.absoluteFilePath());
+		file.setDirectWriteFallback(true);
 		if (!file.open(QFile::WriteOnly)) {
 			QMessageBox::warning(this, QCoreApplication::applicationName(),
 								 tr("Cannot write file \"%1\":\n%2")
 								 .arg(fileInfo.absoluteFilePath(), file.errorString()));
 			setupFileWatcher();
-			goto notSaved;
+			showNotSavedMessage();
+			return false;
 		}
 
 		QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -1478,8 +1484,10 @@ bool TeXDocumentWindow::saveFile(const QFileInfo & fileInfo)
 								 tr("An error may have occurred while saving the file. "
 									"You might like to save a copy in a different location."),
 								 QMessageBox::Ok);
-			goto notSaved;
+			showNotSavedMessage();
+			return false;
 		}
+		file.commit();
 		QApplication::restoreOverrideCursor();
 	}
 
@@ -2238,22 +2246,28 @@ void TeXDocumentWindow::setLineSpacing(qreal percent)
 
 	m_lineSpacing = percent;
 
-	QTextBlockFormat fmt;
-	fmt.setLineHeight(percent, QTextBlockFormat::ProportionalHeight);
-
 	// Select the entire document
 	QTextCursor cur{textDoc()};
 	cur.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+
+	// Don't set the block format if it is not necessary
+	// (works around QTBUG-120451 in "common" cases)
+	if (cur.blockFormat().lineHeightType() == QTextBlockFormat::ProportionalHeight && cur.blockFormat().lineHeight() == percent) {
+		return;
+	}
+	if (cur.blockFormat().lineHeightType() == QTextBlockFormat::SingleHeight && percent == 100) {
+		return;
+	}
 
 	// Remember the "modified" state. While we consider the line spacing as a
 	// purely cosmetic property here, it is set on the underlying text document
 	// and therefore will force its "modified" state to true (which we don't
 	// want, e.g., when starting up)
-	bool wasModified = isModified();
-
+	const bool wasModified = isModified();
 	// Apply the modified line height
+	QTextBlockFormat fmt;
+	fmt.setLineHeight(percent, QTextBlockFormat::ProportionalHeight);
 	cur.mergeBlockFormat(fmt);
-
 	// Restore "modified" state
 	setModified(wasModified);
 }
@@ -2338,12 +2352,19 @@ void TeXDocumentWindow::doFindAgain(bool fromDialog)
 	}
 
 	if (fromDialog && (settings.value(QString::fromLatin1("searchFindAll")).toBool() || settings.value(QString::fromLatin1("searchAllFiles")).toBool())) {
-		bool singleFile = true;
 		QList<SearchResult> results;
 		flags &= ~QTextDocument::FindBackward;
-		int docListIndex = 0;
-		TeXDocumentWindow* theDoc = this;
-		while (true) {
+
+		QList<TeXDocumentWindow*> docsToSearch{this};
+		if (settings.value(QString::fromLatin1("searchAllFiles")).toBool()) {
+			for (TeXDocumentWindow * theDoc : docList) {
+				if (!docsToSearch.contains(theDoc)) {
+					docsToSearch.append(theDoc);
+				}
+			}
+		}
+
+		for (TeXDocumentWindow * theDoc : docsToSearch) {
 			QTextCursor curs(theDoc->textDoc());
 			curs.movePosition(QTextCursor::End);
 			int rangeStart = 0;
@@ -2360,19 +2381,6 @@ void TeXDocumentWindow::doFindAgain(bool fromDialog)
 				else
 					rangeStart = curs.selectionEnd();
 			}
-
-			if (!settings.value(QString::fromLatin1("searchAllFiles")).toBool())
-				break;
-			// go to next document
-		next_doc:
-			if (docList[docListIndex] == theDoc)
-				docListIndex++;
-			if (docListIndex == docList.count())
-				break;
-			theDoc = docList[docListIndex];
-			if (theDoc == this)
-				goto next_doc;
-			singleFile = false;
 		}
 
 		if (results.count() == 0) {
@@ -2380,6 +2388,7 @@ void TeXDocumentWindow::doFindAgain(bool fromDialog)
 			statusBar()->showMessage(tr("Not found"), kStatusMessageDuration);
 		}
 		else {
+			const bool singleFile = (docsToSearch.size() == 1);
 			SearchResults::presentResults(searchText, results, this, singleFile);
 			statusBar()->showMessage(tr("Found %n occurrence(s)", "", static_cast<int>(results.count())), kStatusMessageDuration);
 		}
